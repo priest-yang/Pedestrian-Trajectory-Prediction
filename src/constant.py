@@ -41,6 +41,26 @@ agv_to_stations = {1: (1, 2),
                    7: (6, 8),
                    8: (8, 7)}
 
+User_trajectory = {  # (AGV_name, User_start_station, User_end_station)
+    1: (1, 2),
+    2: (2, 4),
+    3: (4, 3),
+    4: (3, 6),
+    5: (6, 5),
+    6: (5, 6),
+    7: (6, 8),
+    8: (8, 7),
+    9: (7, 8),
+    10: (8, 6),
+    11: (6, 5),
+    12: (5, 6),
+    13: (6, 3),
+    14: (3, 4),
+    15: (4, 2),
+    16: (2, 1),
+}
+
+
 for i in range(9, 17):
     agv_to_stations[i] = (agv_to_stations[17-i][1], agv_to_stations[17-i][0])
 

@@ -1,3 +1,52 @@
+import numpy as np
+from constant import stations
+
+def get_direction_normalized(start: tuple, end: tuple) -> tuple:
+    """
+    Returns the normalized direction vector from start to end.
+    """
+    x = end[0] - start[0]
+    y = end[1] - start[1]
+    length = np.sqrt(x**2 + y**2)
+    return (x/length, y/length)
+
+
+def get_angle_between_normalized_vectors(v1: tuple, v2: tuple) -> float:
+    """
+    Returns the angle between two vectors in radians.
+    """
+    return np.arccos(np.dot(v1, v2))
+
+
+def get_most_close_station_direction(row):
+            """
+            Returns (maximum cosine value, corresponding station number)
+            """
+            max_cos = -1
+            most_common_station = np.nan
+            for station, position in stations.items():
+                direction_normalized = get_direction_normalized(
+                    (row['User_X'], row['User_Y']), position)
+                cosine_gaze_direction = row['GazeDirection_X'] * \
+                    direction_normalized[0] + \
+                    row['GazeDirection_Y'] * direction_normalized[1]
+                if cosine_gaze_direction > max_cos:
+                    max_cos = cosine_gaze_direction
+                    most_common_station = station
+            return max_cos, most_common_station
+    
+def get_user_agv_direction_cos(row):
+    """
+    Returns the cos between direction vector from the user to the AGV.
+    """
+    direction_normalized = get_direction_normalized(
+        (row['User_X'], row['User_Y']), (row['AGV_X'], row['AGV_Y']))
+    cosine_gaze_direction = row['GazeDirection_X'] * \
+        direction_normalized[0] + \
+        row['GazeDirection_Y'] * direction_normalized[1]
+    return cosine_gaze_direction
+
+
 ###   l1 [xa, ya, xb, yb]   l2 [xa, ya, xb, yb]
 def intersect(l1, l2):
     v1 = (l1[0] - l2[0], l1[1] - l2[1])
