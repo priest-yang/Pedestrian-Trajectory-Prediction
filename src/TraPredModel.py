@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class TraPredModel(nn.Module):
-    def __init__(self, input_size = None, lookback = None,  layers=[50, 25, 10, 2], hidden_size = 50):
+    def __init__(self, input_size = None, lookback = None,  layers=[128, 128, 64, 2], hidden_size = 50):
         super().__init__()
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=lookback, batch_first=True)
 

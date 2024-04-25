@@ -149,6 +149,7 @@ class FeatureGenerator:
                                   "AGV_name", "TimestampID", "Timestamp",
                                   'looking_at_closest_station',
                                   ), {}),
+                (), 
             ])
 
             # # add the eye ralted features
@@ -162,7 +163,7 @@ class FeatureGenerator:
             else:
                 raise ValueError("Invalid value for 'to' argument. Should be either 'pkl' or 'csv'")
             
-            break # for testing purpose
+            # break # for testing purpose
 
     @staticmethod
     def process_data_gm(data, pipeline_functions):
@@ -523,6 +524,41 @@ class FeatureGenerator:
             generate_possible_interation_helper)
         df['possible_interaction'].fillna(False, inplace=True)
         return df
+    
+
+    # # (self.select_columns, ("AGV_distance_X", "AGV_distance_Y", "AGV_speed_X", "AGV_speed_Y", "AGV_speed",
+    # #               "User_speed_X", "User_speed_Y", "User_speed",
+    # #               "User_velocity_X", "User_velocity_Y",
+    # #               "Wait_time",
+    # #               "intent_to_cross", "Gazing_station", "possible_interaction",
+    # #               "facing_along_sidewalk", "facing_to_road",
+    # #               'On_sidewalks', 'On_road',
+    # #               'closest_station', "distance_to_closest_station",
+    # #               'distance_to_closest_station_X', 'distance_to_closest_station_Y',
+    # #               'looking_at_AGV',
+    # #               'start_station_X', 'start_station_Y',
+    # #               'end_station_X', 'end_station_Y',
+    # #               'distance_from_start_station_X', 'distance_from_start_station_Y',
+    # #               'distance_from_end_station_X', 'distance_from_end_station_Y',
+    # #               'facing_start_station', 'facing_end_station',
+    # #               # Keep raw features
+    # #               "GazeDirection_X", "GazeDirection_Y", "GazeDirection_Z",
+    # #               "AGV_X", "AGV_Y", "User_X", "User_Y",
+    # #               "AGV_name", "TimestampID", "Timestamp",
+    # #               'looking_at_closest_station',
+    # #               ), {}),
+
+    # @staticmethod
+    # def data_normalize(df):
+    #     df['AGV_X'] = df['AGV_X'] / 17316
+    #     df['AGV_Y'] = df['AGV_Y'] / 12344
+    #     df['User_X'] = df['User_X'] / 17316
+    #     df['User_Y'] = df['User_Y'] / 12344
+    #     df['AGV_distance_X'] = df['AGV_distance_X'] / 17316
+    #     df['AGV_distance_Y'] = df['AGV_distance_Y'] / 12344
+
+        # df = df.apply(lambda x: x / np.linalg.norm(x), axis=1)
+        # return df
     
 
     
