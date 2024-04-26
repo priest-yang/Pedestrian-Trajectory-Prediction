@@ -15,21 +15,23 @@ from typing import Literal
 from tqdm import tqdm
 
 import warnings
+
 warnings.filterwarnings('ignore')
 
 
-
 class FeatureGenerator:
-    def __init__(self, raw_data_path = None, save_data_path = None, GT_path = '../../Inter_test/data/behavior_inter_rater_Shawn.csv', GT_only = False, to : Literal['csv', 'pkl']= 'csv') -> None:
-        '''
+    def __init__(self, raw_data_path=None, save_data_path=None,
+                 GT_path='../../Inter_test/data/behavior_inter_rater_Shawn.csv', GT_only=False,
+                 to: Literal['csv', 'pkl'] = 'csv') -> None:
+        """
         Args:
             raw_data_path: path to the raw data
             save_data_path: path to save the processed data
             GT_path: path to the ground truth file
             GT_only: if True, only generate ground truth files to accelerate the process
-        '''
+        """
 
-        
+        self.frame_rate = None
         self.current_directory = os.getcwd()
         if raw_data_path is not None:
             self.data_directory = raw_data_path
@@ -50,33 +52,33 @@ class FeatureGenerator:
         self.files = os.listdir(self.data_directory)
 
         self.features = ["AV_distance", "AV_speed", "Wait_time",
-                    "Gaze_ratio", "Curb_distance", "Ped_speed"]
+                         "Gaze_ratio", "Curb_distance", "Ped_speed"]
 
         # columns in the data that are important to compute the features
         self.keys = ['TimestampID', 'Timestamp', 'AGV_name',
-                'User_X', 'User_Y', 'AGV_X', 'AGV_Y', 'AGV_speed']
+                     'User_X', 'User_Y', 'AGV_X', 'AGV_Y', 'AGV_speed']
         self.eye_data_keys = ['TimestampID', 'EyeTarget']
 
         self.GT_only = GT_only
         if GT_only:
             if GT_path is None:
-                GT_path = '../../Inter_test/data/behavior_inter_rater_Shawn.csv' # default path
+                GT_path = '../../Inter_test/data/behavior_inter_rater_Shawn.csv'  # default path
             try:
                 self.GT = pd.read_csv(GT_path)
-            except:
+            except FileNotFoundError:
                 raise FileNotFoundError("Ground truth file not found")
 
             self.GT = self.GT[['PID', 'AGV_name', 'Condition']].drop_duplicates()
             test_condition_df = self.GT[['PID', 'Condition']].drop_duplicates(
                 subset=['PID', 'Condition'], keep='last')
             self.files = [f"PID{str(row['PID']).zfill(3)}_{row['Condition']}.pkl" for _,
-                         row in test_condition_df.iterrows()]
-            
+            row in test_condition_df.iterrows()]
+
         self.to = to
 
-
-    def generate_features(self, data_aug = False, lidar_range=20, camera_range=15, FRAMERATE = 70, to :Literal['pkl', 'csv'] = None):
-        '''
+    def generate_features(self, data_aug=False, lidar_range=20, camera_range=15, FRAMERATE=70,
+                          to: Literal['pkl', 'csv'] = None):
+        """
         Generate features for the data
         Args:
             data_aug: if True, augment the data
@@ -84,16 +86,15 @@ class FeatureGenerator:
             camera_range: range of the camera
             FRAMERATE: frame rate of the RAW data
             to: format to save the data, either 'pkl' or 'csv'
-        '''
+        """
 
         to = to if to in ['pkl', 'csv'] else self.to
-
         self.frame_rate = FRAMERATE
 
         for file in tqdm(self.files):
-            if file.endswith(".pkl") == False: 
+            if file.endswith(".pkl") == False:
                 continue
-            
+
             data_details = file.split("_")
             pid = int(data_details[0][-3:])
             scn = data_details[1].split('.')[0]
@@ -102,8 +103,8 @@ class FeatureGenerator:
 
             if self.GT_only:
                 AGV_num = self.GT[(self.GT['PID'] == pid) & (
-                    self.GT['Condition'] == scn)]['AGV_name'].unique()
-                AGV_list = ["AGV"+str(i) for i in AGV_num]
+                        self.GT['Condition'] == scn)]['AGV_name'].unique()
+                AGV_list = ["AGV" + str(i) for i in AGV_num]
                 df = df[df['AGV_name'].isin(AGV_list)]
 
             out_df = pd.DataFrame()
@@ -112,44 +113,44 @@ class FeatureGenerator:
             # Process the data
             if data_aug:
                 df = self.data_aug_helper(df, lidar_range=lidar_range, camera_range=camera_range)
-                if df.shape[0] == 0: # if the data is empty after data augmentation, skip
+                if df.shape[0] == 0:  # if the data is empty after data augmentation, skip
                     continue
-            
+
             out_df = self.process_data_gm(df, [
                 (self.generate_AGV_User_distance, (), {}),
                 (self.generate_AGV_speed, (), {'frame_rate': FRAMERATE}),
                 (self.generate_user_speed, (), {'frame_rate': FRAMERATE}),
                 (self.generate_wait_time, (), {'H1': 0.2, 'H2': 0.1,
-                 'THRESHOLE_ANGLE': GAZING_ANGLE_THRESHOLD, 'frame_rate': FRAMERATE}),
+                                               'THRESHOLE_ANGLE': GAZING_ANGLE_THRESHOLD, 'frame_rate': FRAMERATE}),
                 (self.generate_facing_bool, (), {}),
                 (self.generate_distance_to_closest_station, (), {}),
-                (self.generate_distance_from_start_and_end_stations,  (), {}),
+                (self.generate_distance_from_start_and_end_stations, (), {}),
                 (self.generate_facing_stations, (), {}),
                 (self.generate_intend_to_cross, (), {}),
                 (self.generate_possible_interaction, (), {}),
 
                 (self.select_columns, ("AGV_distance_X", "AGV_distance_Y", "AGV_speed_X", "AGV_speed_Y", "AGV_speed",
-                                  "User_speed_X", "User_speed_Y", "User_speed",
-                                  "User_velocity_X", "User_velocity_Y",
-                                  "Wait_time",
-                                  "intent_to_cross", "Gazing_station", "possible_interaction",
-                                  "facing_along_sidewalk", "facing_to_road",
-                                  'On_sidewalks', 'On_road',
-                                  'closest_station', "distance_to_closest_station",
-                                  'distance_to_closest_station_X', 'distance_to_closest_station_Y',
-                                  'looking_at_AGV',
-                                  'start_station_X', 'start_station_Y',
-                                  'end_station_X', 'end_station_Y',
-                                  'distance_from_start_station_X', 'distance_from_start_station_Y',
-                                  'distance_from_end_station_X', 'distance_from_end_station_Y',
-                                  'facing_start_station', 'facing_end_station',
-                                  # Keep raw features
-                                  "GazeDirection_X", "GazeDirection_Y", "GazeDirection_Z",
-                                  "AGV_X", "AGV_Y", "User_X", "User_Y",
-                                  "AGV_name", "TimestampID", "Timestamp",
-                                  'looking_at_closest_station',
-                                  ), {}),
-                (), 
+                                       "User_speed_X", "User_speed_Y", "User_speed",
+                                       "User_velocity_X", "User_velocity_Y",
+                                       "Wait_time",
+                                       "intent_to_cross", "Gazing_station", "possible_interaction",
+                                       "facing_along_sidewalk", "facing_to_road",
+                                       'On_sidewalks', 'On_road',
+                                       'closest_station', "distance_to_closest_station",
+                                       'distance_to_closest_station_X', 'distance_to_closest_station_Y',
+                                       'looking_at_AGV',
+                                       'start_station_X', 'start_station_Y',
+                                       'end_station_X', 'end_station_Y',
+                                       'distance_from_start_station_X', 'distance_from_start_station_Y',
+                                       'distance_from_end_station_X', 'distance_from_end_station_Y',
+                                       'facing_start_station', 'facing_end_station',
+                                       # Keep raw features
+                                       "GazeDirection_X", "GazeDirection_Y", "GazeDirection_Z",
+                                       "AGV_X", "AGV_Y", "User_X", "User_Y",
+                                       "AGV_name", "TimestampID", "Timestamp",
+                                       'looking_at_closest_station',
+                                       ), {}),
+                (),
             ])
 
             # # add the eye ralted features
@@ -162,7 +163,7 @@ class FeatureGenerator:
                 out_df.to_csv(out_filename, index=False)
             else:
                 raise ValueError("Invalid value for 'to' argument. Should be either 'pkl' or 'csv'")
-            
+
             # break # for testing purpose
 
     @staticmethod
@@ -188,14 +189,14 @@ class FeatureGenerator:
     def generate_AGV_User_distance(df):
         df["AGV_distance_X"] = (np.abs(df['User_X'] - df['AGV_X']) / 100).tolist()
         df["AGV_distance_Y"] = (np.abs(df['User_Y'] - df['AGV_Y']) / 100).tolist()
-        df['AGV_distance'] = np.sqrt(df['AGV_distance_X']**2 + df['AGV_distance_Y']**2)
+        df['AGV_distance'] = np.sqrt(df['AGV_distance_X'] ** 2 + df['AGV_distance_Y'] ** 2)
         return df
-    
+
     # generate the speed of AVG
     # Unit: m/
     @staticmethod
-    def generate_AGV_speed(df, frame_rate = None):
-        def generate_AGV_speed_helper(df, frame_rate = None):
+    def generate_AGV_speed(df, frame_rate=None):
+        def generate_AGV_speed_helper(df, frame_rate=None):
             df["AGV_speed_X"] = abs(
                 df[['AGV_X']] - df[['AGV_X']].shift(1)).values / 100 * frame_rate
             df["AGV_speed_Y"] = abs(
@@ -204,14 +205,14 @@ class FeatureGenerator:
             return df
 
         df = df.groupby("AGV_name").apply(
-            generate_AGV_speed_helper, frame_rate = frame_rate).reset_index(drop=True)
+            generate_AGV_speed_helper, frame_rate=frame_rate).reset_index(drop=True)
         return df
-    
+
     # generate the speed of User
     # Unit: m/s
     @staticmethod
-    def generate_user_speed(df, frame_rate = None):
-        def generate_user_speed_helper(df, frame_rate = None):
+    def generate_user_speed(df, frame_rate=None):
+        def generate_user_speed_helper(df, frame_rate=None):
             df["User_speed_X"] = abs(
                 df[['User_X']] - df[['User_X']].shift(1)).values / 100. * frame_rate
             df["User_speed_Y"] = abs(
@@ -221,11 +222,10 @@ class FeatureGenerator:
             df["User_speed"] = np.sqrt(
                 df["User_speed_X"] ** 2 + df["User_speed_Y"] ** 2)
             return df
-        
+
         df = df.groupby('AGV_name').apply(
             generate_user_speed_helper, frame_rate=frame_rate).reset_index(drop=True)
         return df
-    
 
     @staticmethod
     def generate_wait_time(df, H1=0.2, H2=0.1, THRESHOLE_ANGLE=30, frame_rate=None):
@@ -241,16 +241,16 @@ class FeatureGenerator:
         # User in +- error_range of would be accepted (Unit: cm)
         error_range = ERROR_RANGE
         df['On_sidewalks'] = df['User_Y'].apply(lambda x: True if
-                                                (x > 8150 - error_range and x <
-                                                 8400 + error_range)
-                                                or (x > 6045 - error_range and x < 6295 + error_range)
-                                                else False)
+        (x > 8150 - error_range and x <
+         8400 + error_range)
+        or (x > 6045 - error_range and x < 6295 + error_range)
+        else False)
 
         # df['On sidewalks'] = True
         df['On_road'] = df['User_Y'].apply(lambda x: True if
-                                           (x < 8150 - error_range /
-                                            2) and (x > 6295 + error_range/2)
-                                           else False)
+        (x < 8150 - error_range /
+         2) and (x > 6295 + error_range / 2)
+        else False)
 
         # add "Eye contact" features
         angle_in_radians = np.radians(THRESHOLE_ANGLE)
@@ -268,7 +268,7 @@ class FeatureGenerator:
             (x['GazeDirection_X'], x['GazeDirection_Y']), x['User_TargetStation_direction']), axis=1)
 
         df['looking_at_AGV'] = df.apply(lambda x: True if
-                                        x['User_TargetStation_angle'] > threshold_COSINE or x['User_AGV_angle'] > threshold_COSINE else False, axis=1)
+        x['User_TargetStation_angle'] > threshold_COSINE or x['User_AGV_angle'] > threshold_COSINE else False, axis=1)
 
         begin_wait_Timestamp = None
         begin_wait_Flag = False
@@ -307,19 +307,18 @@ class FeatureGenerator:
         # print("Count of TimeStamp in Wait State / Walk State:",
         #       df[df['Wait_time'] > 0].shape[0], "/", df[df['Wait_time'] == 0].shape[0])
         return df
-    
 
     @staticmethod
     def generate_facing_bool(df):
         THRESHOLD_ANGLE = 45
         THRESHOLD_COS = np.cos(np.radians(THRESHOLD_ANGLE))
 
-        magnitude = (df['GazeDirection_X']**2 + df['GazeDirection_Y']**2)**0.5
+        magnitude = (df['GazeDirection_X'] ** 2 + df['GazeDirection_Y'] ** 2) ** 0.5
         df['GazeDirection_projected_X'] = (df['GazeDirection_X'] / magnitude)
         df['GazeDirection_projected_Y'] = (df['GazeDirection_Y'] / magnitude)
 
         df['facing_along_sidewalk'] = (
-            df['GazeDirection_projected_X'] > THRESHOLD_COS)
+                df['GazeDirection_projected_X'] > THRESHOLD_COS)
 
         def facing_road_helper(row):
             if row["User_velocity_Y"] < 0 and row['User_Y'] > 6295:
@@ -341,7 +340,6 @@ class FeatureGenerator:
             lambda row: facing_road_helper(row), axis=1)
 
         return df
-    
 
     @staticmethod
     def generate_distance_to_closest_station(df):
@@ -350,7 +348,7 @@ class FeatureGenerator:
             closest_station = -1
             for station, position in stations.items():
                 dis = np.sqrt((row['User_X'] - position[0]) **
-                              2 + (row['User_Y'] - position[1])**2)
+                              2 + (row['User_Y'] - position[1]) ** 2)
                 if dis < mindis:
                     mindis = dis
                     closest_station = station
@@ -371,9 +369,7 @@ class FeatureGenerator:
             lambda x: x[1])
         return df
 
-
-
-# # Distance from start and end stations
+    # # Distance from start and end stations
     @staticmethod
     def generate_distance_from_start_and_end_stations(df):
         def generate_station_coordinates(row):
@@ -412,9 +408,6 @@ class FeatureGenerator:
         df.drop(columns=['distance_from_stations'], inplace=True)
         return df
 
-
-
-
     @staticmethod
     def generate_facing_stations(df):
         def dot(vec1, vec2):
@@ -452,8 +445,6 @@ class FeatureGenerator:
         df['facing_end_station'] = df['facing_stations'].apply(lambda x: x[1])
         df.drop(columns=['facing_stations'], inplace=True)
         return df
-    
-
 
     # ## Intend to cross feature
     # based on the following:
@@ -478,8 +469,8 @@ class FeatureGenerator:
         df['User-AGV_direction_cos'] = df.apply(
             lambda row: get_user_agv_direction_cos(row), axis=1)
 
-        df['acceleration'] = (df[['User_speed_X', 'User_speed_Y']] - df[['User_speed_X', 'User_speed_Y']].shift(1))\
-            .apply(lambda row: (row['User_speed_X']**2 + row['User_speed_Y']**2)**0.5, axis=1)
+        df['acceleration'] = (df[['User_speed_X', 'User_speed_Y']] - df[['User_speed_X', 'User_speed_Y']].shift(1)) \
+            .apply(lambda row: (row['User_speed_X'] ** 2 + row['User_speed_Y'] ** 2) ** 0.5, axis=1)
 
         def intent_to_cross_helper(row):
             THRESHOLD_ANGLE = 30
@@ -498,8 +489,9 @@ class FeatureGenerator:
             elif row["User_velocity_Y"] > WALK_STAY_THRESHOLD and row['User_Y'] > 8150:
                 facing_to_road = False
 
-            if ((row['most_close_station_direction_cos'][0] > threshold_COSINE and abs(row['User_Y'] - stations[row['Gazing_station']][1]) > 300) or
-                    row['User-AGV_direction_cos'] > threshold_COSINE) and (facing_to_road):
+            if ((row['most_close_station_direction_cos'][0] > threshold_COSINE and abs(
+                    row['User_Y'] - stations[row['Gazing_station']][1]) > 300) or
+                row['User-AGV_direction_cos'] > threshold_COSINE) and (facing_to_road):
                 return True
             else:
                 return False
@@ -508,23 +500,21 @@ class FeatureGenerator:
             lambda row: intent_to_cross_helper(row), axis=1)
 
         return df
-    
-    
+
     @staticmethod
     def generate_possible_interaction(df):
         def generate_possible_interation_helper(df):
             THRESHOLD_PERIOD = 5
             THRESHOLD_DISTANCE = 10
-            df['possible_interaction'] = df[['AGV_distance']]\
-                .rolling(window=2*THRESHOLD_PERIOD, closed='right').min()\
-                .shift(-THRESHOLD_PERIOD) < THRESHOLD_DISTANCE
+            df['possible_interaction'] = df[['AGV_distance']] \
+                                             .rolling(window=2 * THRESHOLD_PERIOD, closed='right').min() \
+                                             .shift(-THRESHOLD_PERIOD) < THRESHOLD_DISTANCE
             return df
 
         df = df.groupby(by='AGV_name', group_keys=False).apply(
             generate_possible_interation_helper)
         df['possible_interaction'].fillna(False, inplace=True)
         return df
-    
 
     # # (self.select_columns, ("AGV_distance_X", "AGV_distance_Y", "AGV_speed_X", "AGV_speed_Y", "AGV_speed",
     # #               "User_speed_X", "User_speed_Y", "User_speed",
@@ -557,29 +547,29 @@ class FeatureGenerator:
     #     df['AGV_distance_X'] = df['AGV_distance_X'] / 17316
     #     df['AGV_distance_Y'] = df['AGV_distance_Y'] / 12344
 
-        # df = df.apply(lambda x: x / np.linalg.norm(x), axis=1)
-        # return df
-    
+    # df = df.apply(lambda x: x / np.linalg.norm(x), axis=1)
+    # return df
 
-    
     @staticmethod
     def data_aug_helper(df, lidar_range=60, camera_range=20):
         # Simulate Lidar, dismiss the data when the AGV is too far away from the user
         df['AGV_Worker_distance'] = (
-            (df['User_X'] - df['AGV_X']) ** 2 + (df['User_Y'] - df['AGV_Y']) ** 2) ** 0.5 / 100
+                                            (df['User_X'] - df['AGV_X']) ** 2 + (
+                                            df['User_Y'] - df['AGV_Y']) ** 2) ** 0.5 / 100
         df = df[df['AGV_Worker_distance'] <= lidar_range]
         df = df[df.apply(lambda x: does_line_intersect_rectangles(
             (x['User_X'], x['User_Y']), (x['AGV_X'], x['AGV_Y'])) == False, axis=1)]
 
         df[df['AGV_Worker_distance'] <= camera_range][['EyeTarget', 'GazeDirection_X',
-                                                       'GazeDirection_Y', 'GazeDirection_Z',]] = ("", 0, 0, 0)
+                                                       'GazeDirection_Y', 'GazeDirection_Z', ]] = ("", 0, 0, 0)
         df[df['AGV_Worker_distance'] <= camera_range][['GazeOrigin_X', 'GazeOrigin_Y',
-           'GazeOrigin_Z']] = df[df['AGV_Worker_distance'] <= camera_range][['User_X', 'User_Y', 'User_Z']]
+                                                       'GazeOrigin_Z']] = df[df['AGV_Worker_distance'] <= camera_range][
+            ['User_X', 'User_Y', 'User_Z']]
 
         return df
-    
+
     @staticmethod
-    def re_sample(df:pd.DataFrame = None, df_path:str = None, target_frame_rate = None):
+    def re_sample(df: pd.DataFrame = None, df_path: str = None, target_frame_rate=None):
         """
         Resample the data to the given frame rate
         Args:
@@ -603,12 +593,12 @@ class FeatureGenerator:
                 raise ValueError("Target frame rate should be smaller than the origin frame rate")
             else:
                 print(f"Resampling data from {origin_frame_rate} to {target_frame_rate}")
-            ratio = int(origin_frame_rate/target_frame_rate)
+            ratio = int(origin_frame_rate / target_frame_rate)
             df = df.apply(lambda x: x.iloc[::ratio])
             return df
-        
+
     @staticmethod
-    def re_sample_dir(dir, target_frame_rate, target_dir = None, to:Literal['csv', 'pkl'] = 'csv'):
+    def re_sample_dir(dir, target_frame_rate, target_dir=None, to: Literal['csv', 'pkl'] = 'csv'):
         """
         Resample all the files in the directory to the target frame rate
         Args:
@@ -641,24 +631,7 @@ class FeatureGenerator:
         return target_dir
 
 
-
 if __name__ == "__main__":
-    fg = FeatureGenerator(GT_only = False, save_data_path = 'data/test/')
-    fg.generate_features(data_aug=False, lidar_range=20, camera_range=15, FRAMERATE = 70, to = 'csv')
+    fg = FeatureGenerator(GT_only=False, save_data_path='data/test/')
+    fg.generate_features(data_aug=False, lidar_range=20, camera_range=15, FRAMERATE=70, to='csv')
     fg.re_sample_dir('data/test/', 10, 'data/test_resampled/')
-
-
-
-        
-
-    
-
-
-    
-        
-
-
-        
-        
-
-        
