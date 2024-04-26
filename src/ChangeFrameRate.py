@@ -78,6 +78,9 @@ def main():
     out_filepath = os.path.join('..', 'data', 'PandasData', 'Modified', f'PID001_NSL_framerate_{framerate}.csv')
     new_df.to_csv(out_filepath, index=False)
 
+    pickle_filepath = os.path.join('..', 'data', 'PandasData', 'Modified', f'PID001_NSL_framerate_{framerate}.pkl')
+    new_df.to_pickle(pickle_filepath)
+
 
 if __name__ == '__main__':
     main()
