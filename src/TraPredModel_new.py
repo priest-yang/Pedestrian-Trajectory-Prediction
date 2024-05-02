@@ -54,7 +54,7 @@ class TraPredModel(nn.Module):
         #     decoder_out = self.mlp(decoder_out)
         #     outputs.append(decoder_out)
         #     decoder_input = decoder_out  # Using generated output as next input
-
+        
         # # Concatenate all outputs
         # outputs = torch.cat(outputs, dim=1)
         return outputs

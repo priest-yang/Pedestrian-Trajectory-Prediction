@@ -40,19 +40,23 @@ class MyDataset():
                 self.data = torch.utils.data.ConcatDataset([self.data, TensorDataset(X, y)])
     
     @staticmethod
-    def create_dataset(dataset, lookback):
+    def create_dataset(dataset, lookback, future_steps=None):
         """Transform a time series into a prediction dataset
         Args:
             dataset: A numpy array of time series, first dimension is the time steps
             lookback: Size of window for prediction
+            future_steps: Number of future steps to predict
         """
         if isinstance(dataset, pd.DataFrame):
             dataset = dataset.select_dtypes(include=[np.number])
-            
+        
+        if not future_steps:
+            future_steps = lookback
+
         X, y = [], []
-        for i in range(len(dataset)-lookback):
+        for i in range(len(dataset)-future_steps):
             feature = dataset[i:i+lookback]
-            target = dataset[i+1:i+lookback+1]
+            target = dataset[i+1:i+future_steps+1]
             X.append(feature)
             y.append(target)
         return torch.tensor(X), torch.tensor(y)
