@@ -1,8 +1,10 @@
 import pandas as pd
 import torch
+import torch.utils
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import numpy as np
+import torch.utils.data
 
 class MyDataset():
     def __init__(self, lookback=None) -> None:
@@ -29,7 +31,7 @@ class MyDataset():
             if self.feature_dim is None:
                 self.feature_dim = cur_data.shape[1]
             else:
-                assert self.feature_dim == cur_data.shape[1], "Feature dimension should be the same"
+                assert self.feature_dim == cur_data.shape[1], f"Feature dimension should be the same. now under {cur_data.shape[1]} features, but previous data has {self.feature_dim} features. Given features are {cur_data.columns}"
             
             X, y = self.create_dataset(cur_data.values, lookback=self.lookback)
             if self.data is None:
@@ -38,19 +40,23 @@ class MyDataset():
                 self.data = torch.utils.data.ConcatDataset([self.data, TensorDataset(X, y)])
     
     @staticmethod
-    def create_dataset(dataset, lookback):
+    def create_dataset(dataset, lookback, future_steps=None):
         """Transform a time series into a prediction dataset
         Args:
             dataset: A numpy array of time series, first dimension is the time steps
             lookback: Size of window for prediction
+            future_steps: Number of future steps to predict
         """
         if isinstance(dataset, pd.DataFrame):
             dataset = dataset.select_dtypes(include=[np.number])
-            
+        
+        if not future_steps:
+            future_steps = lookback
+
         X, y = [], []
-        for i in range(len(dataset)-lookback):
+        for i in range(len(dataset)-future_steps):
             feature = dataset[i:i+lookback]
-            target = dataset[i+1:i+lookback+1]
+            target = dataset[i+1:i+future_steps+1]
             X.append(feature)
             y.append(target)
         return torch.tensor(X), torch.tensor(y)
@@ -82,3 +88,19 @@ class MyDataset():
     
     def set_lookback(self, lookback: int):
         self.lookback = lookback
+
+    @staticmethod
+    def normalize(data:torch.utils.data.DataLoader, scaler=None):
+        """Normalize the data
+        Args:
+            data: A torch DataLoader
+            scaler: A sklearn scaler, if None, MinMaxScaler will be used
+        """
+        if scaler is None:
+            scaler = MinMaxScaler()
+        for i, (X, y) in enumerate(data):
+            X = X.view(-1, X.shape[-1])
+            y = y.view(-1, y.shape[-1])
+            scaler.partial_fit(X)
+            scaler.partial_fit(y)
+        return scaler
