@@ -3,16 +3,17 @@ import torch.nn as nn
 
 
 class TraPredModel(nn.Module):
-    def __init__(self, input_size = None, lookback = None,  layers=[512, 256, 2], hidden_size = 64, bidirectional = True):
+    def __init__(self, input_size = None, lookback = None,  layers :list =[512, 256], hidden_size = 64, bidirectional = True):
         super().__init__()
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=lookback, batch_first=True, bidirectional=bidirectional, dropout=0.1)
 
-        assert layers[-1] == 2, "The last layer must have 2 output units for the x and y coordinates"
+        # assert layers[-1] == 2, "The last layer must have 2 output units for the x and y coordinates"
         bi = 2 if bidirectional else 1
         neuron_num = hidden_size * 2 + hidden_size * bi
 
         mlp_layers = []
         in_features = neuron_num
+        layers.append(input_size)
         for out_features in layers:
             mlp_layers.append(nn.Linear(in_features, out_features))
             mlp_layers.append(nn.LayerNorm(out_features))  # Adding layer normalization
