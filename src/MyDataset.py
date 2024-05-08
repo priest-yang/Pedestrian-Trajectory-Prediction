@@ -6,7 +6,8 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import numpy as np
 import torch.utils.data
 
-class MyDataset():
+
+class MyDataset:
     def __init__(self, lookback=None) -> None:
         self.data = None
         self.train = None
@@ -14,13 +15,13 @@ class MyDataset():
         self.feature_dim = None
         self.lookback = lookback
 
-    def read_data(self, df: pd.DataFrame, agv_col_name = 'AGV_name'):
-        ''' Read data from a pandas dataframe and create a dataset for training, if the data is not None, it will be concatenated with the new data
+    def read_data(self, df: pd.DataFrame, agv_col_name='AGV_name'):
+        """ Read data from a pandas dataframe and create a dataset for training, if the data is not None, it will be concatenated with the new data
         Args:
             df: A pandas dataframe
             agv_col_name: The column name of the AGV name
-        
-        '''
+
+        """
         if self.lookback is None:
             raise ValueError("Lookback is not set, use set_lookback() to set the lookback window size")
 
@@ -31,14 +32,15 @@ class MyDataset():
             if self.feature_dim is None:
                 self.feature_dim = cur_data.shape[1]
             else:
-                assert self.feature_dim == cur_data.shape[1], f"Feature dimension should be the same. now under {cur_data.shape[1]} features, but previous data has {self.feature_dim} features. Given features are {cur_data.columns}"
-            
+                assert self.feature_dim == cur_data.shape[
+                    1], f"Feature dimension should be the same. now under {cur_data.shape[1]} features, but previous data has {self.feature_dim} features. Given features are {cur_data.columns}"
+
             X, y = self.create_dataset(cur_data.values, lookback=self.lookback)
             if self.data is None:
                 self.data = TensorDataset(X, y)
             else:
                 self.data = torch.utils.data.ConcatDataset([self.data, TensorDataset(X, y)])
-    
+
     @staticmethod
     def create_dataset(dataset, lookback):
         """Transform a time series into a prediction dataset
@@ -48,16 +50,15 @@ class MyDataset():
         """
         if isinstance(dataset, pd.DataFrame):
             dataset = dataset.select_dtypes(include=[np.number])
-            
+
         X, y = [], []
-        for i in range(len(dataset)-lookback):
-            feature = dataset[i:i+lookback]
-            target = dataset[i+1:i+lookback+1]
+        for i in range(len(dataset) - lookback):
+            feature = dataset[i:i + lookback]
+            target = dataset[i + 1:i + lookback + 1]
             X.append(feature)
             y.append(target)
         return torch.tensor(X), torch.tensor(y)
-    
-    
+
     def split_data(self, frac: float = 0.8, shuffle: bool = True, batch_size: int = 4):
         n = len(self.data)
         train_size = int(n * frac)
@@ -70,23 +71,23 @@ class MyDataset():
         # else:
         #     train = torch.utils.data.Subset(self.data, range(0, train_size))
         #     test = torch.utils.data.Subset(self.data, range(train_size, n))
-        
+
         train = torch.utils.data.Subset(self.data, range(0, train_size))
         test = torch.utils.data.Subset(self.data, range(train_size, n))
-        
+
         train = DataLoader(train, batch_size=batch_size, shuffle=shuffle)
         test = DataLoader(test, batch_size=batch_size, shuffle=shuffle)
-        
+
         self.train = train
         self.test = test
 
         return train, test
-    
+
     def set_lookback(self, lookback: int):
         self.lookback = lookback
 
     @staticmethod
-    def normalize(data:torch.utils.data.DataLoader, scaler=None):
+    def normalize(data: torch.utils.data.DataLoader, scaler=None):
         """Normalize the data
         Args:
             data: A torch DataLoader
