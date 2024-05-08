@@ -61,25 +61,35 @@ def average_data_per_framerate(df: pd.DataFrame, framerate: int):
         # if count > 3:
         #     break
 
-    for key, value in new_df.items():
-        print(key, len(value))
+    # for key, value in new_df.items():
+    #     print(key, len(value))
     new_df = pd.DataFrame(new_df)
     return new_df
 
 
 def main():
-    filepath = os.path.join('..', 'data', 'PandasData', 'Original', 'PID001_NSL.pkl')
-    df = pd.read_pickle(filepath)
-    framerate = 24
 
-    df.drop(columns=['EyeTarget'], inplace=True)
-    new_df = average_data_per_framerate(df, framerate)
+    for condition in ['SLD', 'NSL']:
+        for pid in range(1, 24):
+            try:
+                filepath = os.path.join('..', 'data', 'PandasData', 'Original', f'PID{pid:03}_{condition}.pkl')
+                df = pd.read_pickle(filepath)
+                framerate = 36
 
-    out_filepath = os.path.join('..', 'data', 'PandasData', 'Modified', f'PID001_NSL_framerate_{framerate}.csv')
-    new_df.to_csv(out_filepath, index=False)
+                df.drop(columns=['EyeTarget'], inplace=True)
+                new_df = average_data_per_framerate(df, framerate)
 
-    pickle_filepath = os.path.join('..', 'data', 'PandasData', 'Modified', f'PID001_NSL_framerate_{framerate}.pkl')
-    new_df.to_pickle(pickle_filepath)
+                out_directory = os.path.join('..', 'data', 'PandasData', 'Modified', f'FrameRate{framerate}')
+                if not os.path.exists(out_directory):
+                    os.makedirs(out_directory)
+                out_filepath = os.path.join(out_directory, f'PID{pid:03}_{condition}.csv')
+                new_df.to_csv(out_filepath, index=False)
+
+                pickle_filepath = os.path.join(out_directory, f'PID{pid:03}_{condition}.pkl')
+                new_df.to_pickle(pickle_filepath)
+            except FileNotFoundError:
+                print(pid)
+                continue
 
 
 if __name__ == '__main__':
