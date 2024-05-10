@@ -53,6 +53,8 @@ class MyDataset():
         self.dataset = [(data - mean) / std for data in self.dataset]
 
         # standardize
+        concatenated_data = pd.concat(self.dataset)
+        # recompute the min and max in the new combined data
         min_ = concatenated_data.min()
         max_ = concatenated_data.max()
         self.dataset = [(data - min_) / (max_ - min_) for data in self.dataset]
@@ -85,7 +87,7 @@ class MyDataset():
             future_steps: Number of future steps to predict
         """
         if isinstance(dataset, pd.DataFrame):
-            dataset = dataset.select_dtypes(include=[np.number])
+            dataset = dataset.select_dtypes(include=[np.number]).values
         
         if not future_steps:
             future_steps = lookback

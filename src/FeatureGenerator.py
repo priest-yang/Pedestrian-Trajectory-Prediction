@@ -539,14 +539,14 @@ class FeatureGenerator:
     # #               'looking_at_closest_station',
     # #               ), {}),
 
-    @staticmethod
-    def data_normalize(df):
-        df['AGV_X'] = df['AGV_X'] / 17316
-        df['AGV_Y'] = df['AGV_Y'] / 12344
-        df['User_X'] = df['User_X'] / 17316
-        df['User_Y'] = df['User_Y'] / 12344
-        # df = df.apply(lambda x: x / np.linalg.norm(x), axis=1)
-        return df
+    # @staticmethod
+    # def data_normalize(df):
+    #     df['AGV_X'] = df['AGV_X'] / 17316
+    #     df['AGV_Y'] = df['AGV_Y'] / 12344
+    #     df['User_X'] = df['User_X'] / 17316
+    #     df['User_Y'] = df['User_Y'] / 12344
+    #     # df = df.apply(lambda x: x / np.linalg.norm(x), axis=1)
+    #     return df
 
     @staticmethod
     def clip_data(df:pd.DataFrame, threshold:int = 0.1, frame_rate:int = None):
