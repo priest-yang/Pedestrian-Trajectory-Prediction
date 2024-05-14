@@ -1,6 +1,6 @@
 from utils import *
 from constant import *
-
+from utils import get_direction_normalized, get_angle_between_normalized_vectors
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
@@ -21,7 +21,7 @@ warnings.filterwarnings('ignore')
 
 class FeatureGenerator:
     def __init__(self, raw_data_path=None, save_data_path=None,
-                 GT_path='../../Inter_test/data/behavior_inter_rater_Shawn.csv', GT_only=False,
+                 GT_path=None, GT_only=False,
                  to: Literal['csv', 'pkl'] = 'csv') -> None:
         """
         Args:
@@ -92,7 +92,7 @@ class FeatureGenerator:
         self.frame_rate = FRAMERATE
 
         for file in tqdm(self.files):
-            if file.endswith(".pkl") == False:
+            if not file.endswith(".pkl"):
                 continue
 
             data_details = file.split("_")
@@ -199,7 +199,7 @@ class FeatureGenerator:
     def generate_AGV_speed(df, frame_rate=None):
         def generate_AGV_speed_helper(df, frame_rate=None):
             df["AGV_speed_X"] = abs(
-                df[['AGV_X']] - df[['AGV_X']].shift(1)).values / 100 * frame_rate
+                df[['AGV_X']] - df[['AGV_X']].shift(1)).values / 100 * frame_rate  # converting centimeter to meter
             df["AGV_speed_Y"] = abs(
                 df[['AGV_Y']] - df[['AGV_Y']].shift(1)).values / 100 * frame_rate
             df["AGV_speed"] = np.sqrt(df["AGV_speed_X"] ** 2 + df["AGV_speed_Y"] ** 2)
@@ -215,7 +215,7 @@ class FeatureGenerator:
     def generate_user_speed(df, frame_rate=None):
         def generate_user_speed_helper(df, frame_rate=None):
             df["User_speed_X"] = abs(
-                df[['User_X']] - df[['User_X']].shift(1)).values / 100. * frame_rate
+                df[['User_X']] - df[['User_X']].shift(1)).values / 100. * frame_rate  # converting centimeter to meter
             df["User_speed_Y"] = abs(
                 df[['User_Y']] - df[['User_Y']].shift(1)).values / 100. * frame_rate
             df["User_velocity_X"] = (df[['User_X']] - df[['User_X']].shift(1)) / 100. * frame_rate
@@ -231,20 +231,16 @@ class FeatureGenerator:
     @staticmethod
     def generate_wait_time(df, H1=0.2, H2=0.1, THRESHOLE_ANGLE=30, frame_rate=None):
         """Generate the wait time feature."""
-        from utils import get_direction_normalized, get_angle_between_normalized_vectors
-        from constant import ERROR_RANGE, stations, User_trajectory
 
-        # df['User_speed'] = np.sqrt(df['User_speed_X']**2 + df['User_speed_Y']**2)
         df['Wait_State'] = (df.shift(1) + df)['User_speed'] < H1
         df['Wait_time'] = 0
 
-        # add "On side walk" features
+        # add "On sidewalk" features
         # User in +- error_range of would be accepted (Unit: cm)
         error_range = ERROR_RANGE
         df['On_sidewalks'] = df['User_Y'].apply(lambda x: True if
-        (x > 8150 - error_range and x <
-         8400 + error_range)
-        or (x > 6045 - error_range and x < 6295 + error_range)
+        (8150 - error_range < x < 8400 + error_range)
+        or (6045 - error_range < x < 6295 + error_range)
         else False)
 
         # df['On sidewalks'] = True
@@ -284,10 +280,10 @@ class FeatureGenerator:
                 AGV_passed_Flag = False
                 continue
 
-            if AGV_passed_Flag == True:  # AGV is passed
+            if AGV_passed_Flag:  # AGV is passed
                 continue
 
-            if begin_wait_Flag == False:  # in walking state
+            if not begin_wait_Flag:  # in walking state
                 # begin of waiting state
                 if row['Wait_State'] and row['On_sidewalks'] and ~row['looking_at_AGV']:
                     begin_wait_Flag = True
@@ -586,12 +582,10 @@ class FeatureGenerator:
     @staticmethod
     def data_aug_helper(df, lidar_range=60, camera_range=20):
         # Simulate Lidar, dismiss the data when the AGV is too far away from the user
-        df['AGV_Worker_distance'] = (
-                                            (df['User_X'] - df['AGV_X']) ** 2 + (
-                                            df['User_Y'] - df['AGV_Y']) ** 2) ** 0.5 / 100
+        df['AGV_Worker_distance'] = ((df['User_X'] - df['AGV_X']) ** 2 + (df['User_Y'] - df['AGV_Y']) ** 2) ** 0.5 / 100
         df = df[df['AGV_Worker_distance'] <= lidar_range]
         df = df[df.apply(lambda x: does_line_intersect_rectangles(
-            (x['User_X'], x['User_Y']), (x['AGV_X'], x['AGV_Y'])) == False, axis=1)]
+            (x['User_X'], x['User_Y']), (x['AGV_X'], x['AGV_Y'])) is False, axis=1)]
 
         df[df['AGV_Worker_distance'] <= camera_range][['EyeTarget', 'GazeDirection_X',
                                                        'GazeDirection_Y', 'GazeDirection_Z', ]] = ("", 0, 0, 0)
@@ -631,26 +625,26 @@ class FeatureGenerator:
             return df
 
     @staticmethod
-    def re_sample_dir(dir, target_frame_rate, target_dir=None, to: Literal['csv', 'pkl'] = 'csv'):
+    def re_sample_dir(directory, target_frame_rate, target_dir=None, to: Literal['csv', 'pkl'] = 'csv'):
         """
         Resample all the files in the directory to the target frame rate
         Args:
-            dir: directory of the data
+            directory: directory of the data
             target_frame_rate: target frame rate
             target_dir: directory to save the resampled data
             to: format to save the resampled data, either 'csv' or 'pkl'
         """
         if target_dir is None:
-            target_dir = dir + "_resampled"
+            target_dir = directory + "_resampled"
         if not os.path.exists(target_dir):
             os.makedirs(target_dir)
             print(f"Created directory {target_dir}")
-        files = os.listdir(dir)
+        files = os.listdir(directory)
         for file in files:
             if file.endswith('csv'):
-                df = pd.read_csv(os.path.join(dir, file))
+                df = pd.read_csv(os.path.join(directory, file))
             elif file.endswith('pkl'):
-                df = pd.read_pickle(os.path.join(dir, file))
+                df = pd.read_pickle(os.path.join(directory, file))
             else:
                 print(f"Unrecognized file format: {file}")
                 continue

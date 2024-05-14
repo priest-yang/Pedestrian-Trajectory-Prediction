@@ -3,9 +3,12 @@ import torch.nn as nn
 
 
 class TraPredModel(nn.Module):
-    def __init__(self, input_size = None, lookback = None,  layers :list =[512, 256], hidden_size = 64, bidirectional = True):
+    def __init__(self, input_size=None, lookback=None, layers=None, hidden_size=64, bidirectional=True):
         super().__init__()
-        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=lookback, batch_first=True, bidirectional=bidirectional, dropout=0.1)
+        if layers is None:
+            layers = [512, 256, 2]
+        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=lookback, batch_first=True,
+                            bidirectional=bidirectional, dropout=0.1)
 
         # assert layers[-1] == 2, "The last layer must have 2 output units for the x and y coordinates"
         bi = 2 if bidirectional else 1
@@ -20,17 +23,14 @@ class TraPredModel(nn.Module):
             mlp_layers.append(nn.ReLU())  # Adding ReLU activation function after each Linear layer
             mlp_layers.append(nn.Dropout(0.2))  # Adding dropout layer
             in_features = out_features  # Update in_features for the next layer
-        
-        mlp_layers.pop() # Remove the last ReLU added in the loop
-        mlp_layers.pop() # Remove the last LayerNorm added in the loop
-        mlp_layers.pop() # Remove the last Dropout added in the loop
-        
+
+        mlp_layers.pop()  # Remove the last ReLU added in the loop
+        mlp_layers.pop()  # Remove the last LayerNorm added in the loop
+        mlp_layers.pop()  # Remove the last Dropout added in the loop
+
         self.mlp = nn.Sequential(*mlp_layers)
 
-
-
-
-    def forward(self, x): 
+    def forward(self, x):
         lstm_out, (h_n, c_n) = self.lstm(x)
         batch_first_hidden = torch.cat((c_n.permute(1, 0, 2), h_n.permute(1, 0, 2)), dim=2)
 
