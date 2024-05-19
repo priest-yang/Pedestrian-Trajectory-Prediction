@@ -1,21 +1,14 @@
 from utils import *
 from constant import *
 from utils import get_direction_normalized, get_angle_between_normalized_vectors
-from sklearn.preprocessing import FunctionTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
-
 import pandas as pd
-import os
 import numpy as np
 import math
 import os
 import glob
 from typing import Literal
 from tqdm import tqdm
-
 import warnings
-
 warnings.filterwarnings('ignore')
 
 
@@ -513,37 +506,6 @@ class FeatureGenerator:
         df['possible_interaction'].fillna(False, inplace=True)
         return df
 
-    # # (self.select_columns, ("AGV_distance_X", "AGV_distance_Y", "AGV_speed_X", "AGV_speed_Y", "AGV_speed",
-    # #               "User_speed_X", "User_speed_Y", "User_speed",
-    # #               "User_velocity_X", "User_velocity_Y",
-    # #               "Wait_time",
-    # #               "intent_to_cross", "Gazing_station", "possible_interaction",
-    # #               "facing_along_sidewalk", "facing_to_road",
-    # #               'On_sidewalks', 'On_road',
-    # #               'closest_station', "distance_to_closest_station",
-    # #               'distance_to_closest_station_X', 'distance_to_closest_station_Y',
-    # #               'looking_at_AGV',
-    # #               'start_station_X', 'start_station_Y',
-    # #               'end_station_X', 'end_station_Y',
-    # #               'distance_from_start_station_X', 'distance_from_start_station_Y',
-    # #               'distance_from_end_station_X', 'distance_from_end_station_Y',
-    # #               'facing_start_station', 'facing_end_station',
-    # #               # Keep raw features
-    # #               "GazeDirection_X", "GazeDirection_Y", "GazeDirection_Z",
-    # #               "AGV_X", "AGV_Y", "User_X", "User_Y",
-    # #               "AGV_name", "TimestampID", "Timestamp",
-    # #               'looking_at_closest_station',
-    # #               ), {}),
-
-    # @staticmethod
-    # def data_normalize(df):
-    #     df['AGV_X'] = df['AGV_X'] / 17316
-    #     df['AGV_Y'] = df['AGV_Y'] / 12344
-    #     df['User_X'] = df['User_X'] / 17316
-    #     df['User_Y'] = df['User_Y'] / 12344
-    #     # df = df.apply(lambda x: x / np.linalg.norm(x), axis=1)
-    #     return df
-
     @staticmethod
     def clip_data(df:pd.DataFrame, threshold:int = 0.1, frame_rate:int = None):
         """
@@ -659,6 +621,6 @@ class FeatureGenerator:
 
 
 if __name__ == "__main__":
-    fg = FeatureGenerator(GT_only=False, save_data_path='data/test/')
+    fg = FeatureGenerator(GT_only=False, save_data_path='../data/test/')
     fg.generate_features(data_aug=False, lidar_range=20, camera_range=15, FRAMERATE=70, to='csv')
     fg.re_sample_dir('data/test/', 10, 'data/test_resampled/')

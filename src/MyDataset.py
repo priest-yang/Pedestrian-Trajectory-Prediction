@@ -34,7 +34,8 @@ class MyDataset:
                 self.feature_dim = cur_data.shape[1]
             else:
                 assert self.feature_dim == cur_data.shape[
-                    1], f"Feature dimension should be the same. now under {cur_data.shape[1]} features, but previous data has {self.feature_dim} features. Given features are {cur_data.columns}"
+                    1], (f"Feature dimension should be the same. now under {cur_data.shape[1]} features, but previous "
+                         f"data has {self.feature_dim} features. Given features are {cur_data.columns}")
 
             X, y = self.create_dataset(cur_data.values, lookback=self.lookback)
             if self.data is None:
