@@ -7,9 +7,12 @@ __pycache__/
 
 .DS_Store
 data/
-model/
+
 # C extensions
 *.so
+*.ckpt 
+*.pt 
+
 
 # Distribution / packaging
 .Python

@@ -1,0 +1,153 @@
+attention_head_size: 1
+categorical_groups: {}
+causal_attention: true
+dropout: 0.1
+embedding_labels: {}
+embedding_paddings: []
+embedding_sizes: {}
+hidden_continuous_size: 8
+hidden_continuous_sizes: {}
+hidden_size: 32
+learning_rate: 0.03
+log_gradient_flow: false
+log_interval: 10
+log_val_interval: null
+lstm_layers: 1
+max_encoder_length: 32
+monotone_constaints: {}
+optimizer: Ranger
+optimizer_params: null
+output_size:
+- 1
+- 1
+output_transformer: !!python/object:pytorch_forecasting.data.encoders.MultiNormalizer
+  fitted_: true
+  normalizers:
+  - !!python/object:pytorch_forecasting.data.encoders.EncoderNormalizer
+    center: true
+    center_: !!python/object/apply:numpy.core.multiarray.scalar
+    - &id001 !!python/object/apply:numpy.dtype
+      args:
+      - f8
+      - false
+      - true
+      state: !!python/tuple
+      - 3
+      - <
+      - null
+      - null
+      - null
+      - -1
+      - -1
+      - 0
+    - !!binary |
+      K0hh6UCT3j8=
+    max_length: null
+    method: standard
+    method_kwargs: &id002 {}
+    scale_: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      je5Rt8dy0T8=
+    transformation: relu
+  - !!python/object:pytorch_forecasting.data.encoders.EncoderNormalizer
+    center: true
+    center_: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      YghDsj+J2D8=
+    max_length: null
+    method: standard
+    method_kwargs: *id002
+    scale_: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      RNtzYXIL1T8=
+    transformation: null
+reduce_on_plateau_min_lr: 1.0e-05
+reduce_on_plateau_patience: 4
+reduce_on_plateau_reduction: 2.0
+share_single_variable_networks: false
+static_categoricals: []
+static_reals: []
+time_varying_categoricals_decoder: []
+time_varying_categoricals_encoder: []
+time_varying_reals_decoder:
+- AGV_speed_X
+- AGV_speed_Y
+- AGV_speed
+- User_speed
+- User_velocity_X
+- User_velocity_Y
+- Wait_time
+- start_station_X
+- start_station_Y
+- end_station_X
+- end_station_Y
+- AGV_X
+- AGV_Y
+- rolling_avg
+time_varying_reals_encoder:
+- AGV_speed_X
+- AGV_speed_Y
+- AGV_speed
+- User_speed
+- User_velocity_X
+- User_velocity_Y
+- Wait_time
+- start_station_X
+- start_station_Y
+- end_station_X
+- end_station_Y
+- AGV_X
+- AGV_Y
+- rolling_avg
+- AGV_distance_X
+- AGV_distance_Y
+- User_speed_X
+- User_speed_Y
+- distance_to_closest_station
+- distance_to_closest_station_X
+- distance_to_closest_station_Y
+- distance_from_start_station_X
+- distance_from_start_station_Y
+- distance_from_end_station_X
+- distance_from_end_station_Y
+- GazeDirection_X
+- GazeDirection_Y
+- GazeDirection_Z
+- Gazing_station
+- closest_station
+weight_decay: 0.0
+x_categoricals: []
+x_reals:
+- AGV_speed_X
+- AGV_speed_Y
+- AGV_speed
+- User_speed
+- User_velocity_X
+- User_velocity_Y
+- Wait_time
+- start_station_X
+- start_station_Y
+- end_station_X
+- end_station_Y
+- AGV_X
+- AGV_Y
+- rolling_avg
+- AGV_distance_X
+- AGV_distance_Y
+- User_speed_X
+- User_speed_Y
+- distance_to_closest_station
+- distance_to_closest_station_X
+- distance_to_closest_station_Y
+- distance_from_start_station_X
+- distance_from_start_station_Y
+- distance_from_end_station_X
+- distance_from_end_station_Y
+- GazeDirection_X
+- GazeDirection_Y
+- GazeDirection_Z
+- Gazing_station
+- closest_station
