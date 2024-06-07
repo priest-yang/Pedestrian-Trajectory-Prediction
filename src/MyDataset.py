@@ -101,7 +101,7 @@ class MyDataset():
         return torch.tensor(X), torch.tensor(y)
     
     
-    def split_data(self, frac: float = 0.8, shuffle: bool = True, batch_size: int = 4):
+    def split_data(self, frac: float = 0.8, shuffle: bool = True, train_batch_size: int = 4, test_batch_size:int = 16):
         n = len(self.data)
         train_size = int(n * frac)
         test_size = n - train_size
@@ -117,8 +117,8 @@ class MyDataset():
         train = torch.utils.data.Subset(self.data, range(0, train_size))
         test = torch.utils.data.Subset(self.data, range(train_size, n))
         
-        train = DataLoader(train, batch_size=batch_size, shuffle=shuffle)
-        test = DataLoader(test, batch_size=batch_size, shuffle=shuffle)
+        train = DataLoader(train, batch_size=train_batch_size, shuffle=shuffle)
+        test = DataLoader(test, batch_size=test_batch_size, shuffle=shuffle)
         
         self.train = train
         self.test = test
