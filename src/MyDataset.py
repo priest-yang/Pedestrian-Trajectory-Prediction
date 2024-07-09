@@ -61,7 +61,7 @@ class MyDataset():
 
         return {'mean': mean, 'std': std, 'min': min_, 'max': max_}
 
-    def generate_data(self) -> None:
+    def generate_data(self, return_list = False) -> None:
         ''' Generate data for training
         '''
         if self.dataset is None:
@@ -73,9 +73,12 @@ class MyDataset():
             X.append(X_data)
             y.append(y_data)
         
-        X = torch.cat(X)
-        y = torch.cat(y)
-        self.data = TensorDataset(X, y)
+        X_cat = torch.cat(X)
+        y_cat = torch.cat(y)
+        self.data = TensorDataset(X_cat, y_cat)
+        
+        if return_list:
+            return X, y
     
 
     @staticmethod
@@ -93,9 +96,9 @@ class MyDataset():
             future_steps = lookback
 
         X, y = [], []
-        for i in range(len(dataset)-future_steps):
+        for i in range(len(dataset)-future_steps-lookback+1):
             feature = dataset[i:i+lookback]
-            target = dataset[i+1:i+future_steps+1]
+            target = dataset[i+lookback:i+lookback+future_steps]
             X.append(feature)
             y.append(target)
         return torch.tensor(X), torch.tensor(y)
@@ -106,19 +109,11 @@ class MyDataset():
         train_size = int(n * frac)
         test_size = n - train_size
 
-        # Shawn: not sure if we should shuffle here
-
-        # if shuffle:
-        #     train, test = torch.utils.data.random_split(self.data, [train_size, test_size])
-        # else:
-        #     train = torch.utils.data.Subset(self.data, range(0, train_size))
-        #     test = torch.utils.data.Subset(self.data, range(train_size, n))
-        
         train = torch.utils.data.Subset(self.data, range(0, train_size))
         test = torch.utils.data.Subset(self.data, range(train_size, n))
         
         train = DataLoader(train, batch_size=train_batch_size, shuffle=shuffle)
-        test = DataLoader(test, batch_size=test_batch_size, shuffle=shuffle)
+        test = DataLoader(test, batch_size=test_batch_size, shuffle=False)
         
         self.train = train
         self.test = test
