@@ -6,8 +6,9 @@ src_dir = os.path.join(cur_dir, '../')  # Constructs the path to the 'src' direc
 if src_dir not in sys.path:
     sys.path.append(src_dir)
     
-from MyDataset import MyDataset
-from TemporalFusionTransformer import TemporalFusionTransformer
-from PlotState import plot_FSM_state_scatter
-from constant import *
-from FeatureGenerator import FeatureGenerator
+from .MyDataset import MyDataset
+from .TemporalFusionTransformer import TemporalFusionTransformer
+from .PlotState import plot_FSM_state_scatter
+from .constant import *
+from .utils import *
+from .FeatureGenerator import FeatureGenerator

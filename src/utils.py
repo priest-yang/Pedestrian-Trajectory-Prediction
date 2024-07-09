@@ -1,5 +1,5 @@
 import numpy as np
-from constant import stations
+from .constant import *
 
 def get_direction_normalized(start: tuple, end: tuple) -> tuple:
     """
