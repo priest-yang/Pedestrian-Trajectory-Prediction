@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from typing import Optional
 
 class GatedResidualNetwork(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, num_layers=3, dropout_rate=0.1):
@@ -36,7 +37,7 @@ class TransformerBlock(nn.Module):
             nn.Linear(hidden_size * 4, hidden_size)
         )
 
-    def forward(self, x, mask=None):
+    def forward(self, x, mask: Optional[torch.Tensor]=None):
         x2 = x
         x = self.norm1(x)
         x, _ = self.attention(x, x, x, key_padding_mask=mask)
@@ -57,7 +58,7 @@ class TemporalFusionTransformer(nn.Module):
         self.num_steps = num_steps
         self.num_outputs = num_outputs
 
-    def forward(self, x, mask=None):
+    def forward(self, x,  mask: Optional[torch.Tensor]=None):
         batch_size, seq_len, _ = x.shape
         x = self.encoder_grn(x)
         x = x.permute(1, 0, 2)  # Prepare shape for nn.MultiheadAttention (seq_len, batch_size, num_features)
