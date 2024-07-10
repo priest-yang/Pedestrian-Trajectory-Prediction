@@ -8,7 +8,6 @@ if src_dir not in sys.path:
     
 from .MyDataset import MyDataset
 from .TemporalFusionTransformer import TemporalFusionTransformer
-from .PlotState import plot_FSM_state_scatter
 from .constant import *
 from .utils import *
 from .FeatureGenerator import FeatureGenerator
