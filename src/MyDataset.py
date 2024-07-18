@@ -61,7 +61,7 @@ class MyDataset():
 
         return {'mean': mean, 'std': std, 'min': min_, 'max': max_}
 
-    def generate_data(self, return_list = False) -> None:
+    def generate_data(self, return_list = False, future_steps = None) -> None:
         ''' Generate data for training
         '''
         if self.dataset is None:
@@ -69,7 +69,7 @@ class MyDataset():
         
         X, y = [], []
         for data in self.dataset:
-            X_data, y_data = self.create_dataset(data, lookback=self.lookback)
+            X_data, y_data = self.create_dataset(data, lookback=self.lookback, future_steps=future_steps)
             X.append(X_data)
             y.append(y_data)
         
