@@ -232,8 +232,8 @@ class FeatureGenerator:
     @staticmethod
     def generate_wait_time(df, H1=0.2, H2=0.1, THRESHOLE_ANGLE=30, frame_rate=None):
         """Generate the wait time feature."""
-        from utils import get_direction_normalized, get_angle_between_normalized_vectors
-        from constant import ERROR_RANGE, stations, User_trajectory
+        from .utils import get_direction_normalized, get_angle_between_normalized_vectors
+        from .constant import ERROR_RANGE, stations, User_trajectory
 
         # df['User_speed'] = np.sqrt(df['User_speed_X']**2 + df['User_speed_Y']**2)
         df['Wait_State'] = (df.shift(1) + df)['User_speed'] < H1
