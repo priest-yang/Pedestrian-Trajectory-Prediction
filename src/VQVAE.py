@@ -68,7 +68,7 @@ class VQVAE(nn.Module):
         self.decoder = VQVAEDecoder(embedding_dim, hidden_dim, input_dim)
 
     def forward(self, x):
-        z = self.encoder(x)
+        z = self.encoder(x) 
         quantized, vq_loss, perplexity = self.quantizer(z)
         x_recon = self.decoder(quantized)
         return x_recon, vq_loss, perplexity, z
