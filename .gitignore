@@ -6,7 +6,13 @@ __pycache__/
 *$py.class
 
 .DS_Store
-data/
+data/PandasData/Modified/*
+data/PandasData/Original/*
+data/PandasData/Sampled/*
+data/PandasData/Predicted/*
+data/Plots
+data/*.pkl
+
 !data/PandasData/Modified/PID001_NSL.pkl
 !data/PandasData/Original/PID001_NSL.csv
 !data/PandasData/Original/PID001_NSL.pkl
