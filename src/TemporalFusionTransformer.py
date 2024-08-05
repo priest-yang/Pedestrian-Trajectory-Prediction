@@ -49,10 +49,10 @@ class TransformerBlock(nn.Module):
         return x
 
 class TemporalFusionTransformer(nn.Module):
-    def __init__(self, num_features, num_hidden, num_outputs, num_steps):
+    def __init__(self, num_features, num_hidden, num_outputs, num_steps, num_attention_heads=8):
         super(TemporalFusionTransformer, self).__init__()
         self.encoder_grn = GatedResidualNetwork(num_features, num_hidden, num_hidden)
-        self.transformer_block = TransformerBlock(num_hidden, num_heads=8, dropout_rate=0.1)
+        self.transformer_block = TransformerBlock(num_hidden, num_heads=num_attention_heads, dropout_rate=0.1)
         self.decoder_grn = GatedResidualNetwork(num_hidden, num_hidden, num_hidden)
         self.final_linear = nn.Linear(num_hidden, num_outputs * num_steps)
         self.num_steps = num_steps
