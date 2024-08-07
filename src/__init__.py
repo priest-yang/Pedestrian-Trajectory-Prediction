@@ -13,3 +13,5 @@ from .utils import *
 from .FeatureGenerator import FeatureGenerator
 from .BaseLSTM import BaseLSTM
 from .VQVAE import VQVAE
+
+from .FAMRunner import MLECombinedFAMRunner

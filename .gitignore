@@ -10,6 +10,7 @@ data/PandasData/Modified/*
 data/PandasData/Original/*
 data/PandasData/Sampled/*
 data/PandasData/Predicted/*
+data/PandasData/Sampled_state/*
 data/Plots
 data/*.pkl
 
