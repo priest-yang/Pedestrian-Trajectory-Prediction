@@ -20,6 +20,7 @@ data/*.pkl
 !data/PandasData/Sampled/PID001_NSL.pkl
 
 lightning_logs/
+model/*
 # C extensions
 *.so
 *.ckpt 
