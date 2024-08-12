@@ -21,6 +21,13 @@ data/*.pkl
 
 lightning_logs/
 model/*
+
+
+pipeline/demo/*
+pipeline/libtorch/*
+
+!pipeline/demo/0.csv
+
 # C extensions
 *.so
 *.ckpt 
