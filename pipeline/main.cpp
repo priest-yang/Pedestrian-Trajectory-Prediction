@@ -29,16 +29,6 @@ public:
     }
 };
 
-// torch::Tensor convertLineToTensor(const std::string& line) {
-//     std::vector<float> values;
-//     std::stringstream ss(line);
-//     std::string item;
-//     while (std::getline(ss, item, ',')) {
-//         values.push_back(std::stof(item));
-//     }
-//     return torch::tensor(values);
-// }
-
 torch::Tensor convertLineToTensor(const std::string& line) {
     std::vector<float> values;
     std::stringstream ss(line);
@@ -92,7 +82,7 @@ void readCSVAndProcess(const std::string& filename, RollingFIFO& fifo, torch::ji
 int main() {
     try {
         torch::jit::script::Module model = torch::jit::load("/home/shaoze/Documents/Boeing/Boeing-Trajectory-Prediction/exported/model_tft_vqvae_cpu.pt");
-        RollingFIFO fifo(40); // Last 5 rows
+        RollingFIFO fifo(40); // Last 40 rows
 
         readCSVAndProcess("/home/shaoze/Documents/Boeing/Boeing-Trajectory-Prediction/pipeline/demo/0.csv", fifo, model);
     } catch (const c10::Error& e) {
