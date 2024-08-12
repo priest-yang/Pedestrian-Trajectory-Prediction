@@ -29,12 +29,30 @@ public:
     }
 };
 
+// torch::Tensor convertLineToTensor(const std::string& line) {
+//     std::vector<float> values;
+//     std::stringstream ss(line);
+//     std::string item;
+//     while (std::getline(ss, item, ',')) {
+//         values.push_back(std::stof(item));
+//     }
+//     return torch::tensor(values);
+// }
+
 torch::Tensor convertLineToTensor(const std::string& line) {
     std::vector<float> values;
     std::stringstream ss(line);
     std::string item;
     while (std::getline(ss, item, ',')) {
-        values.push_back(std::stof(item));
+        try {
+            values.push_back(std::stof(item));
+        } catch (const std::invalid_argument& e) {
+            std::cerr << "Invalid argument: " << item << " in line: " << line << std::endl;
+            continue; // Skip invalid entries or handle them appropriately
+        } catch (const std::out_of_range& e) {
+            std::cerr << "Out of range: " << item << " in line: " << line << std::endl;
+            continue;
+        }
     }
     return torch::tensor(values);
 }
@@ -53,6 +71,12 @@ void feedModel(torch::jit::script::Module& model, const RollingFIFO& fifo) {
 void readCSVAndProcess(const std::string& filename, RollingFIFO& fifo, torch::jit::script::Module& model) {
     std::ifstream file(filename);
     std::string line;
+    
+    // remove header
+    if (std::getline(file, line)) {
+        // Optionally do something with the header or just ignore it
+    }
+
     while (std::getline(file, line)) {
         fifo.push(line);
         if (fifo.isFull()) {
