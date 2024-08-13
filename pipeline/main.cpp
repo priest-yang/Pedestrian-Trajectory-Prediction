@@ -54,7 +54,7 @@ void feedModel(torch::jit::script::Module& model, const RollingFIFO& fifo) {
         tensors.push_back(convertLineToTensor(line));
     }
     torch::Tensor input = torch::stack(tensors);
-    auto output = model.forward({input}).toTensor();
+    auto output = (model.forward({input}))[0].toTensor();
     std::cout << "Model output: " << output << std::endl;
 }
 
