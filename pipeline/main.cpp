@@ -93,10 +93,10 @@ public:
 
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = end - start;
-        std::cout <<"\n\n\n";
+        std::cout <<"\n\n";
         std::cout << "Elapsed time: " << elapsed.count() << " seconds." << std::endl;
         std::cout << "Processed " << this->cnt << " lines." << std::endl;
-        std::cout << "Speed: " << this->cnt / elapsed.count() << " lines per second." << std::endl;
+        std::cout << "Speed: " << this->cnt / elapsed.count() << " lines per second.\n\n" << std::endl;
     }
 
 

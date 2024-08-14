@@ -26,6 +26,7 @@ model/*
 
 pipeline/demo/*
 pipeline/libtorch/*
+!pipeline/libtorch/README.md
 
 !pipeline/demo/0.csv
 
