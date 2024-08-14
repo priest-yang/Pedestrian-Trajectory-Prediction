@@ -1,4 +1,7 @@
 # Trajectory Prediction
+This project aims at predict the trajectory for pedestrians in a manufacturing plants. 
+The data was collected from a virtual environments. 
+
 
 
 ## Sturcture
@@ -30,4 +33,35 @@
     ├── TraPredModel.py (LSTM Model)
     └── utils.py (Helper functions)
 
+```
+
+# Model Source File
+
+- VQ-VAE
+- Temporal Fusion Transformer
+- baseline Constnt Velocity Model and baseline LSTM
+- FAM for pedestrian state classify
+- Feature generator
+
+
+## Real-time Pipeline in C++ environments
+In folder ``pipeline/`` 
+
+- follow the ``README.md`` to insall the libtorch. 
+- change ``-DCMAKE_PREFIX_PATH`` in ``run.sh`` to the path of libtorch
+- adjust ``main`` function in ``main.cpp`` for model path, data path, feature dim, prediction windows etc.
+
+
+run the following commands to test:
+```shell
+mkdir build && cd build
+sh ../run.sh
+./real-time-sim
+``` 
+
+you will see sth like:
+``` shell
+Elapsed time: 0.760805 seconds.
+Processed 608 lines.
+Speed: 799.153 lines per second.
 ```
