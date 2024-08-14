@@ -59,6 +59,9 @@ class TemporalFusionTransformer(nn.Module):
         self.num_outputs = num_outputs
 
     def forward(self, x,  mask: Optional[torch.Tensor]=None):
+        if len(x.shape) == 2:
+            # bacth_size = 1, in real-time mode
+            x = x.unsqueeze(1)
         batch_size, seq_len, _ = x.shape
         x = self.encoder_grn(x)
         x = x.permute(1, 0, 2)  # Prepare shape for nn.MultiheadAttention (seq_len, batch_size, num_features)

@@ -72,3 +72,4 @@ class VQVAE(nn.Module):
         quantized, vq_loss, perplexity = self.quantizer(z)
         x_recon = self.decoder(quantized)
         return x_recon, vq_loss, perplexity, z
+    

@@ -54,8 +54,16 @@ void feedModel(torch::jit::script::Module& model, const RollingFIFO& fifo) {
         tensors.push_back(convertLineToTensor(line));
     }
     torch::Tensor input = torch::stack(tensors);
-    auto output = (model.forward({input}))[0].toTensor();
-    std::cout << "Model output: " << output << std::endl;
+    
+    // std::vector<c10::IValue> obs_vector_{};
+    // obs_vector_.emplace_back(torch::rand({40, 32})); 
+    
+    std::vector<c10::IValue> obs_vector_{};
+    obs_vector_ = {input};
+    auto outputs = (model.forward(obs_vector_)).toTuple();
+    auto predictions = outputs->elements()[0].toTensor();
+
+    std::cout << "Model output: " << predictions << std::endl;
 }
 
 void readCSVAndProcess(const std::string& filename, RollingFIFO& fifo, torch::jit::script::Module& model) {
