@@ -45,7 +45,11 @@ The data was collected from a virtual environments.
 
 
 ## Real-time Pipeline in C++ environments
-In folder ``pipeline/`` 
+
+In the future, we will integrate the model into unreal engine. Here we put a simulator in C++ environments as a demo. The program will read off-line features from ``/demo`` folder line-by-line then update a buffer in a **FIFO** way. The **JIT** model will be tested in a process. 
+
+
+To run demo, in the folder ``pipeline/`` 
 
 - follow the ``README.md`` to insall the libtorch. 
 - change ``-DCMAKE_PREFIX_PATH`` in ``run.sh`` to the path of libtorch
