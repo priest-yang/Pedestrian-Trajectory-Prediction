@@ -2,104 +2,108 @@
 #include <fstream>
 #include <string>
 #include <deque>
-#include "libtorch/include/torch/script.h"
+#include <vector>
+#include <thread>
+#include <torch/script.h>
+#include <torch/torch.h>
 
-
-class RollingFIFO {
+class ModelRunner {
 private:
-    std::deque<std::string> buffer;
+    torch::jit::script::Module model;
+    std::string filename;
+    int feature_dim;
+    std::deque<torch::Tensor> buffer;
     size_t capacity;
+    torch::Device device; // Store the device type
+    int cnt = 0;
 
 public:
-    RollingFIFO(size_t n) : capacity(n) {}
+    ModelRunner(const std::string& model_path, const std::string& filename, int feature_dim, size_t capacity)
+        : filename(filename), feature_dim(feature_dim), capacity(capacity), 
+         device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU) {
+        try {
+            model = torch::jit::load(model_path);
+            // Set device based on CUDA availability
+            model.to(device);
+            std::cout << (device.type() == torch::kCUDA ? "Using GPU." : "Using CPU.") << std::endl;
 
-    void push(const std::string& line) {
-        buffer.push_back(line);
-        if (buffer.size() > capacity) {
-            buffer.pop_front();
+            // Verify model input dimension with a random input
+            auto test_input = torch::rand({1, feature_dim}, device);
+            std::vector<torch::jit::IValue> inputs = {test_input};
+            model.forward(inputs); // This will throw if the dimension is incorrect
+        } catch (const c10::Error& err) {
+            std::cerr << "Error loading the model: " << err.what() << std::endl;
+            exit(-1);
         }
     }
 
-    std::deque<std::string> getLastN() const {
-        return buffer;
+    torch::Tensor convertLineToTensor(const std::string& line) {
+        torch::Tensor tensor = torch::empty(feature_dim, torch::kFloat32);
+        std::stringstream ss(line);
+        std::string item;
+        int index = 0;
+        while (std::getline(ss, item, ',') && index < feature_dim) {
+            try {
+                tensor[index++] = std::stof(item);
+            } catch (const std::exception& e) {
+                std::cerr << "Parsing error: " << e.what() << " in line: " << line << std::endl;
+                tensor[index++] = 0.0f; // Handle error, e.g., by setting to zero
+            }
+        }
+        return tensor;
     }
 
-    bool isFull() const {
-        return buffer.size() == capacity;
+    void feedModel(){
+        if (buffer.empty()) return;
+
+        // Stack tensors to create a batched input
+        auto input = torch::stack(std::vector<torch::Tensor>(buffer.begin(), buffer.end()));
+
+        // Forward pass through the model
+        auto outputs = model.forward({input}).toTuple();
+        auto predictions = outputs->elements()[0].toTensor();
+        std::cout << "Model output " << this->cnt + 1 << ": " 
+                  << std::setw(3) << std::setfill(' ');
+        this->cnt++;
+        for (auto s : predictions.sizes()) std::cout << s << " ";
+        std::cout << std::endl;
+    }
+
+    void updateBuffer(torch::Tensor newTensor) {
+        if (buffer.size() >= capacity) {
+            buffer.pop_front();  // Remove the oldest tensor if we are at capacity
+        }
+        buffer.push_back(newTensor);  // Add the new tensor to the buffer
+    }
+
+    void processFile(const std::string& spec_filename) {
+        std::string effectiveFilename = spec_filename.empty() ? this->filename : spec_filename;
+        std::cout << "Processing file: " << effectiveFilename << std::endl;
+        std::ifstream file(effectiveFilename);
+        std::string line;
+        if (std::getline(file, line)) {} // Optionally handle header
+
+        while (std::getline(file, line)) {
+            auto tensor = convertLineToTensor(line);
+            updateBuffer(tensor);  // Update the buffer with each new line
+            feedModel();           // Run the model on every new line
+        }
+    }
+
+
+    void start(const std::string& filename = "") {
+        this->cnt = 0;
+        std::thread worker(&ModelRunner::processFile, this, filename);
+        worker.join();
     }
 };
 
-torch::Tensor convertLineToTensor(const std::string& line) {
-    std::vector<float> values;
-    std::stringstream ss(line);
-    std::string item;
-    while (std::getline(ss, item, ',')) {
-        try {
-            values.push_back(std::stof(item));
-        } catch (const std::invalid_argument& e) {
-            std::cerr << "Invalid argument: " << item << " in line: " << line << std::endl;
-            continue; // Skip invalid entries or handle them appropriately
-        } catch (const std::out_of_range& e) {
-            std::cerr << "Out of range: " << item << " in line: " << line << std::endl;
-            continue;
-        }
-    }
-    return torch::tensor(values);
-}
-
-void feedModel(torch::jit::script::Module& model, const RollingFIFO& fifo) {
-    auto data = fifo.getLastN();
-    std::vector<torch::Tensor> tensors;
-    for (const auto& line : data) {
-        tensors.push_back(convertLineToTensor(line));
-    }
-    torch::Tensor input = torch::stack(tensors);
-    
-    // std::vector<c10::IValue> obs_vector_{};
-    // obs_vector_.emplace_back(torch::rand({40, 32})); 
-    
-    std::vector<c10::IValue> obs_vector_{};
-    obs_vector_ = {input};
-    auto outputs = (model.forward(obs_vector_)).toTuple();
-    auto predictions = outputs->elements()[0].toTensor();
-
-    std::cout << "Model output: " << predictions << std::endl;
-}
-
-void readCSVAndProcess(const std::string& filename, RollingFIFO& fifo, torch::jit::script::Module& model) {
-    std::ifstream file(filename);
-    std::string line;
-    
-    // remove header
-    if (std::getline(file, line)) {
-        // Optionally do something with the header or just ignore it
-    }
-
-    while (std::getline(file, line)) {
-        fifo.push(line);
-        if (fifo.isFull()) {
-            feedModel(model, fifo);
-        }
-    }
-    // Optional: feed model with remaining data if necessary
-    if (!fifo.getLastN().empty()) {
-        feedModel(model, fifo);
-    }
-}
-
 int main() {
-    try {
-        torch::jit::script::Module model = torch::jit::load("/home/shaoze/Documents/Boeing/Boeing-Trajectory-Prediction/exported/model_tft_vqvae_cpu.pt");
-        RollingFIFO fifo(40); // Last 40 rows
+    ModelRunner runner("/home/shaoze/Documents/Boeing/Boeing-Trajectory-Prediction/exported/model_tft_vqvae_cpu.pt",
+                       "/home/shaoze/Documents/Boeing/Boeing-Trajectory-Prediction/pipeline/demo/0.csv",
+                       32, // Feature dimension
+                       40); // Capacity or batch size
 
-        readCSVAndProcess("/home/shaoze/Documents/Boeing/Boeing-Trajectory-Prediction/pipeline/demo/0.csv", fifo, model);
-    } catch (const c10::Error& e) {
-        std::cerr << "Error loading the model\n";
-        return -1;
-    } catch (const std::exception& e) {
-        std::cerr << "Standard exception: " << e.what() << std::endl;
-        return -1;
-    }
-
+    runner.start("/home/shaoze/Documents/Boeing/Boeing-Trajectory-Prediction/pipeline/demo/1.csv");
     return 0;
 }
