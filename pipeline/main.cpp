@@ -77,6 +77,8 @@ public:
     }
 
     void processFile(const std::string& spec_filename) {
+        auto start = std::chrono::high_resolution_clock::now();
+
         std::string effectiveFilename = spec_filename.empty() ? this->filename : spec_filename;
         std::cout << "Processing file: " << effectiveFilename << std::endl;
         std::ifstream file(effectiveFilename);
@@ -88,6 +90,13 @@ public:
             updateBuffer(tensor);  // Update the buffer with each new line
             feedModel();           // Run the model on every new line
         }
+
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = end - start;
+        std::cout <<"\n\n\n";
+        std::cout << "Elapsed time: " << elapsed.count() << " seconds." << std::endl;
+        std::cout << "Processed " << this->cnt << " lines." << std::endl;
+        std::cout << "Speed: " << this->cnt / elapsed.count() << " lines per second." << std::endl;
     }
 
 
