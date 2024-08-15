@@ -1,4 +1,4 @@
-# Trajectory Prediction
+# Pedestrian Trajectory Prediction
 This project aims at predict the trajectory for pedestrians in a manufacturing plants. 
 The data was collected from a virtual environments. 
 
@@ -51,7 +51,7 @@ In the future, we will integrate the model into unreal engine. Here we put a sim
 
 To run demo, in the folder ``pipeline/`` 
 
-- follow the ``README.md`` to insall the libtorch. 
+- follow the ``libtorch/README.md`` to insall libtorch. 
 - change ``-DCMAKE_PREFIX_PATH`` in ``run.sh`` to the path of libtorch
 - adjust ``main`` function in ``main.cpp`` for model path, data path, feature dim, prediction windows etc.
 
