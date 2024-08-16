@@ -35,13 +35,21 @@ The data was collected from a virtual environments.
 
 ```
 
-# Model Source File
+## Model
 
+
+### [Source Files](src/)
 - VQ-VAE
 - Temporal Fusion Transformer
 - baseline Constnt Velocity Model and baseline LSTM
 - FAM for pedestrian state classify
 - Feature generator
+
+### Script
+The pipeline of data preparation - model training - validation could be found at [`notebook`](nootbook/) folder. 
+
+### Visualization
+We built an interactive visualization of trajectory prediction model by **Plotly**. You can found the script at [`visualization`](notebook/visualization.ipynb). 
 
 
 ## Real-time Pipeline in C++ environments
