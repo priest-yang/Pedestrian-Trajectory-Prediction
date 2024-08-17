@@ -60,8 +60,10 @@ public:
         auto input = torch::stack(std::vector<torch::Tensor>(buffer.begin(), buffer.end()));
 
         // Forward pass through the model
-        auto outputs = model.forward({input}).toTuple();
-        auto predictions = outputs->elements()[0].toTensor();
+        // auto outputs = model.forward({input}).toTuple();
+        // auto predictions = outputs->elements()[0].toTensor();
+
+        auto predictions = model.forward({input}).toTensor();
         std::cout << "Model output " << this->cnt + 1 << ": " 
                   << std::setw(3) << std::setfill(' ');
         this->cnt++;
@@ -108,7 +110,7 @@ public:
 };
 
 int main() {
-    ModelRunner runner("/home/shaoze/Documents/Boeing/Boeing-Trajectory-Prediction/exported/model_tft_vqvae_cpu.pt",
+    ModelRunner runner("/home/shaoze/Documents/Boeing/Boeing-Trajectory-Prediction/exported/model_tft_vqvae_cpu_preproc.pt",
                        "/home/shaoze/Documents/Boeing/Boeing-Trajectory-Prediction/pipeline/demo/0.csv",
                        32, // Feature dimension
                        40); // Capacity or batch size
