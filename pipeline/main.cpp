@@ -69,6 +69,8 @@ public:
         this->cnt++;
         for (auto s : predictions.sizes()) std::cout << s << " ";
         std::cout << std::endl;
+
+        std::cout << predictions << std::endl;
     }
 
     void updateBuffer(torch::Tensor newTensor) {
