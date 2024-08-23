@@ -594,8 +594,9 @@ class ApproachingStationState(FiniteAutomationState):
 
 
 class FiniteAutomationMachine:
-    def __init__(self, features: dict = None, error_flag_size:int = 3) -> None:
-        self.current_state = ErrorState(features)  # initialize at the Unknown state
+    def __init__(self, features: dict = None, error_flag_size:int = 3, current_state: FiniteAutomationState = ErrorState) -> None:
+        self.current_state = current_state(features)  # initialize at the Unknown state
+        
         self.next_state = None
 
         if error_flag_size < 2:

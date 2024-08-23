@@ -44,7 +44,7 @@ class MLECombinedFAMRunner:
             self.error_flag_size = error_flag_size
 
     def run(self, datapath: str = None, savepath: str = None, plot: bool = None,
-            fig_save_dir: str = None, error_flag_size : int = None, drop_feature : list = None, save : bool = False) -> pd.DataFrame:
+            fig_save_dir: str = None, error_flag_size : int = None, save : bool = False) -> pd.DataFrame:
         """
         Run the FAM on the data
         """
@@ -76,10 +76,6 @@ class MLECombinedFAMRunner:
         # load data
         df = pd.read_pickle(datapath)
         result_df = pd.DataFrame()
-
-        #drop features if needed (for experiments)
-        if drop_feature is not None:
-            df[drop_feature] = 0
 
         AGV_name_list = df['AGV_name'].unique()
 
