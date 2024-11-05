@@ -28,7 +28,9 @@ class MyDataset():
         agv_list = df[agv_col_name].unique()
         for agv in agv_list:
             cur_data = df[df[agv_col_name] == agv]
-            cur_data = cur_data.select_dtypes(include=[np.number])
+            # cur_data = cur_data.select_dtypes(include=[np.number])
+            cur_data.drop(columns=["AGV_name"], inplace=True)
+            cur_data = cur_data.astype(np.float32)
             if self.feature_dim is None:
                 self.feature_dim = cur_data.shape[1]
             else:
