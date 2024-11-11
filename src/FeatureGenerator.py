@@ -1,5 +1,5 @@
-from utils import *
-from constant import *
+from .utils import *
+from .constant import *
 
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.pipeline import Pipeline
@@ -15,6 +15,7 @@ from typing import Literal
 from tqdm import tqdm
 
 import warnings
+
 
 warnings.filterwarnings('ignore')
 
@@ -231,8 +232,8 @@ class FeatureGenerator:
     @staticmethod
     def generate_wait_time(df, H1=0.2, H2=0.1, THRESHOLE_ANGLE=30, frame_rate=None):
         """Generate the wait time feature."""
-        from utils import get_direction_normalized, get_angle_between_normalized_vectors
-        from constant import ERROR_RANGE, stations, User_trajectory
+        from .utils import get_direction_normalized, get_angle_between_normalized_vectors
+        from .constant import ERROR_RANGE, stations, User_trajectory
 
         # df['User_speed'] = np.sqrt(df['User_speed_X']**2 + df['User_speed_Y']**2)
         df['Wait_State'] = (df.shift(1) + df)['User_speed'] < H1
@@ -539,14 +540,14 @@ class FeatureGenerator:
     # #               'looking_at_closest_station',
     # #               ), {}),
 
-    @staticmethod
-    def data_normalize(df):
-        df['AGV_X'] = df['AGV_X'] / 17316
-        df['AGV_Y'] = df['AGV_Y'] / 12344
-        df['User_X'] = df['User_X'] / 17316
-        df['User_Y'] = df['User_Y'] / 12344
-        # df = df.apply(lambda x: x / np.linalg.norm(x), axis=1)
-        return df
+    # @staticmethod
+    # def data_normalize(df):
+    #     df['AGV_X'] = df['AGV_X'] / 17316
+    #     df['AGV_Y'] = df['AGV_Y'] / 12344
+    #     df['User_X'] = df['User_X'] / 17316
+    #     df['User_Y'] = df['User_Y'] / 12344
+    #     # df = df.apply(lambda x: x / np.linalg.norm(x), axis=1)
+    #     return df
 
     @staticmethod
     def clip_data(df:pd.DataFrame, threshold:int = 0.1, frame_rate:int = None):

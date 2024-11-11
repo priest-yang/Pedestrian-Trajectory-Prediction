@@ -1,4 +1,5 @@
 src/FG_debug.py
+.vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -6,10 +7,34 @@ __pycache__/
 *$py.class
 
 .DS_Store
-data/
+data/PandasData/Modified/*
+data/PandasData/Original/*
+data/PandasData/Sampled/*
+data/PandasData/Predicted/*
+data/PandasData/Sampled_state/*
+data/Plots
+data/*.pkl
+
+!data/PandasData/Modified/PID001_NSL.pkl
+!data/PandasData/Original/PID001_NSL.csv
+!data/PandasData/Original/PID001_NSL.pkl
+!data/PandasData/Sampled/PID001_NSL.pkl
+
+lightning_logs/
+model/*
+
+
+pipeline/demo/*
+pipeline/libtorch/*
+!pipeline/libtorch/README.md
+
+!pipeline/demo/0.csv
 
 # C extensions
 *.so
+*.ckpt 
+*.pt 
+
 
 # Distribution / packaging
 .Python
