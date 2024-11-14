@@ -11,7 +11,10 @@ data/PandasData/Modified/*
 data/PandasData/Original/*
 data/PandasData/Sampled/*
 data/PandasData/Predicted/*
+data/PandasData/Original_sampled/*
 data/PandasData/Sampled_state/*
+data/GeneratedFeatures/*
+data/PandasData/UE/*
 data/Plots
 data/*.pkl
 
@@ -19,6 +22,7 @@ data/*.pkl
 !data/PandasData/Original/PID001_NSL.csv
 !data/PandasData/Original/PID001_NSL.pkl
 !data/PandasData/Sampled/PID001_NSL.pkl
+!data/PandasData/UE/PID001_NSL.pkl
 
 lightning_logs/
 model/*
