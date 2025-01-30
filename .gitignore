@@ -17,12 +17,16 @@ data/GeneratedFeatures/*
 data/PandasData/UE/*
 data/Plots
 data/*.pkl
+data/PredictionModelOutput/*
+data/FeatureGeneratorOutput/*
+data/animation/*
 
 !data/PandasData/Modified/PID001_NSL.pkl
 !data/PandasData/Original/PID001_NSL.csv
 !data/PandasData/Original/PID001_NSL.pkl
 !data/PandasData/Sampled/PID001_NSL.pkl
 !data/PandasData/UE/PID001_NSL.pkl
+
 
 lightning_logs/
 model/*
