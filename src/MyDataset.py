@@ -140,3 +140,58 @@ class MyDataset():
             scaler.partial_fit(X)
             scaler.partial_fit(y)
         return scaler
+    
+
+import pickle
+import os
+def save_dataset(dataloader: torch.utils.data.DataLoader, file_path: str = None, type: str = 'train'):
+    dataset = dataloader.dataset  # Extract dataset
+    sampler = dataloader.sampler if dataloader.sampler is not None else None
+
+    # Save dataset (if possible) and dataloader params
+    save_dict = {
+        "dataset": dataset,  # Only works if dataset is serializable
+        "sampler": sampler,  # Only works if sampler is serializable
+        "batch_size": dataloader.batch_size,
+        "shuffle": dataloader.shuffle if hasattr(dataloader, 'shuffle') else False,
+        "num_workers": dataloader.num_workers,
+        "drop_last": dataloader.drop_last,
+    }
+
+    # Save to a file
+    if file_path is None:
+        os.makedirs("../data/.cache", exist_ok=True)
+        file_path = f"../data/.cache/{type}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pkl"
+    else:
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)    
+
+    print(f"Saving to {file_path}")
+    with open(file_path, "wb") as f:
+        pickle.dump(save_dict, f)
+
+# load
+from typing import Optional
+def load_dataset(file_path: str) -> Optional[torch.utils.data.DataLoader]:
+    with open(file_path, "rb") as f:
+        load_dict = pickle.load(f)
+
+    # Extract dataset and parameters
+    dataset = load_dict["dataset"]
+    sampler = load_dict["sampler"]
+    batch_size = load_dict["batch_size"]
+    shuffle = load_dict["shuffle"]
+    num_workers = load_dict["num_workers"]
+    drop_last = load_dict["drop_last"]
+
+    # Recreate DataLoader
+    from torch.utils.data import DataLoader
+
+    new_dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle if sampler is None else False,  # If a sampler exists, shuffle should be False
+        sampler=sampler,
+        num_workers=num_workers,
+        drop_last=drop_last,
+    )
+    return new_dataloader
