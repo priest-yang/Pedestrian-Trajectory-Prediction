@@ -53,6 +53,7 @@ class TemporalFusionTransformer(nn.Module):
         super(TemporalFusionTransformer, self).__init__()
         self.encoder_grn = GatedResidualNetwork(num_features, num_hidden, num_hidden)
         self.transformer_block = TransformerBlock(num_hidden, num_heads=num_attention_heads, dropout_rate=0.1)
+        self.transformer_block2 = TransformerBlock(num_hidden, num_heads=num_attention_heads, dropout_rate=0.1)
         self.decoder_grn = GatedResidualNetwork(num_hidden, num_hidden, num_hidden)
         self.final_linear = nn.Linear(num_hidden, num_outputs * num_steps)
         self.num_steps = num_steps
@@ -66,6 +67,7 @@ class TemporalFusionTransformer(nn.Module):
         x = self.encoder_grn(x)
         x = x.permute(1, 0, 2)  # Prepare shape for nn.MultiheadAttention (seq_len, batch_size, num_features)
         x = self.transformer_block(x, mask=mask)
+        x = self.transformer_block2(x, mask=mask)
         x = x.permute(1, 0, 2)  # Revert shape to (batch_size, seq_len, num_features)
         x = self.decoder_grn(x)
         x = self.final_linear(x)

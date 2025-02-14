@@ -19,6 +19,8 @@ data/Plots
 data/*.pkl
 data/PredictionModelOutput/*
 data/FeatureGeneratorOutput/*
+data/Phase3/*
+data/FAMOutput/*
 data/animation/*
 
 !data/PandasData/Modified/PID001_NSL.pkl

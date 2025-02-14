@@ -29,12 +29,12 @@ class MyDataset():
         for agv in agv_list:
             cur_data = df[df[agv_col_name] == agv]
             # cur_data = cur_data.select_dtypes(include=[np.number])
-            cur_data.drop(columns=["AGV_name"], inplace=True)
+            cur_data.drop(columns=[agv_col_name], inplace=True)
             cur_data = cur_data.astype(np.float32)
             if self.feature_dim is None:
                 self.feature_dim = cur_data.shape[1]
             else:
-                assert self.feature_dim == cur_data.shape[1], f"Feature dimension should be the same. now under {cur_data.shape[1]} features, but previous data has {self.feature_dim} features. Given features are {cur_data.columns}"
+                assert self.feature_dim == cur_data.shape[1], f"Feature dimension should be the same. now under {cur_data.shape[1]} features, but previous data has {self.feature_dim} features. \nPrevious columns: {self.dataset[0].columns}. \nGiven features are {cur_data.columns}"
         
             self.dataset.append(cur_data)
 
