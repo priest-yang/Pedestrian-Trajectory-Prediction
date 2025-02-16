@@ -189,8 +189,8 @@ def load_dataset(file_path: str) -> Optional[torch.utils.data.DataLoader]:
     new_dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=shuffle if sampler is None else False,  # If a sampler exists, shuffle should be False
-        sampler=sampler,
+        shuffle=True,  # If a sampler exists, shuffle should be False
+        # sampler=sampler,
         num_workers=num_workers,
         drop_last=drop_last,
     )
