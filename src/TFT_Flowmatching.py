@@ -94,22 +94,39 @@ def cosine_beta_schedule(timesteps, s=0.008):
     betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])
     return torch.clip(betas, 0.0001, 0.9999)
 
+
+
+def compute_flow_target(noise, y_batch, t):
+    """
+    Compute the intermediate sample x_t and target velocity for flow-matching.
+    
+    Args:
+        noise: Tensor of shape (batch, num_action_steps, action_dim), noise sample
+        y_batch: Tensor of shape (batch, num_action_steps, action_dim), ground truth actions
+        t: Tensor of shape (batch, 1, 1), time steps
+    
+    Returns:
+        x_t: Intermediate sample at time t
+        v_target: Target velocity
+    """
+    t = t.view(-1, 1, 1)  # Ensure t is [batch, 1, 1]
+    x_t = t * noise + (1 - t) * y_batch
+    v_target = noise - y_batch
+    return x_t, v_target
+
 class DiffusionDecoder(nn.Module):
     def __init__(self, action_dim, conditioning_dim, num_diffusion_steps=10,
-                 num_action_steps=20, num_heads=4, hidden_dim=128, num_layers=2):
+                 num_action_steps=20, num_heads=4, hidden_dim=128, num_layers=2, noise_weight=1):
         super().__init__()
         self.action_dim = action_dim
-        self.num_diffusion_steps = num_diffusion_steps
+        self.num_diffusion_steps = num_diffusion_steps  # Number of integration steps
         self.hidden_dim = hidden_dim
         self.num_action_steps = num_action_steps
+        self.noise_weight = noise_weight
 
-        # Improved beta schedule
-        betas = cosine_beta_schedule(num_diffusion_steps)
-        self.register_buffer('betas', betas)
-        alphas = 1.0 - betas
-        self.register_buffer('alpha_bars', torch.cumprod(alphas, dim=0))
+        # self.initial_guess_proj = nn.Linear(hidden_dim, action_dim * num_action_steps)
 
-        # Enhanced time embedding
+        # Time embedding
         self.time_embed = SinusoidalTimeEmbedding(hidden_dim)
         
         # Input projection with time conditioning
@@ -133,87 +150,114 @@ class DiffusionDecoder(nn.Module):
         self.out = nn.Linear(hidden_dim, action_dim)
 
     def forward(self, conditioning, x_t, t):
+        """
+        Predicts the velocity given conditioning, intermediate sample x_t, and time t.
+        
+        Args:
+            conditioning: Tensor of shape (batch, cond_len, hidden_dim)
+            x_t: Tensor of shape (batch, num_action_steps, action_dim)
+            t: Tensor of shape (batch,) with time values in [0,1], dtype float
+        
+        Returns:
+            v_pred: Predicted velocity of shape (batch, num_action_steps, action_dim)
+        """
         # Time embedding
         t_emb = self.time_embed(t)  # [batch, h_dim]
         
         # Combine input with time embeddings
-        x_proj = self.input_proj(torch.cat([x_t, t_emb.unsqueeze(1).expand(-1, x_t.size(1), -1)], -1))
+        t_emb_expanded = t_emb.unsqueeze(1).expand(-1, x_t.size(1), -1)
+        x_with_time = torch.cat([x_t, t_emb_expanded], dim=-1)  # [batch, num_action_steps, action_dim + h_dim]
+        x_proj = self.input_proj(x_with_time)  # [batch, num_action_steps, h_dim]
         
         # Process through transformer blocks
         h = x_proj
         for block in self.blocks:
-            # Cross-attention
-            attn_out, _ = block['cross_attn'](
-                h, conditioning, conditioning,
-            )
+            h_norm = block['norm1'](h)
+            attn_out, _ = block['cross_attn'](h_norm, conditioning, conditioning)
             h = h + attn_out
-            h = block['norm1'](h)
             
-            # MLP
-            h = h + block['mlp'](h)
             h = block['norm2'](h)
+            h = h + block['mlp'](h)
         
-        return self.out(h)
+        return self.out(h)  # [batch, num_action_steps, action_dim]
     
-    def influence(self, conditioning, device):
+    def decoder_train_step(self, conditioning, y_batch, device):
         """
-        Runs the reverse diffusion process and returns a list of intermediate denoised trajectories.
+        Performs one training step for the flow-matching decoder.
         
         Args:
             conditioning: Tensor of shape (batch, cond_len, conditioning_dim)
-            device: torch.device.
-            
+            y_batch: Ground truth trajectory (batch, num_action_steps, action_dim)
+            device: torch.device
+        
         Returns:
-            intermediates: A list of tensors, each of shape (batch, num_action_steps, action_dim),
-                           representing the denoised trajectory at each diffusion step.
+            loss: The MSE loss between predicted and target velocity
         """
-        batch_size = conditioning.size(0)
-        x = torch.randn(batch_size, self.num_action_steps, self.action_dim, device=device)
-        intermediates = []
-        # Reverse diffusion: record intermediate results at each step.
-        for t in reversed(range(self.num_diffusion_steps)):
-            t_tensor = torch.full((batch_size,), t, device=device, dtype=torch.long)
-            epsilon_pred = self.forward(conditioning, x, t_tensor)
-            beta_t = self.betas[t]
-            alpha_t = 1.0 - beta_t
-            alpha_bar_t = self.alpha_bars[t]
-            noise = torch.randn_like(x) if t > 0 else 0.0
-            x = (1.0 / torch.sqrt(alpha_t)) * (x - (beta_t / torch.sqrt(1 - alpha_bar_t)) * epsilon_pred) \
-                + torch.sqrt(beta_t) * noise
-            # Save a clone of the current state.
-            intermediates.append(x.clone())
-        return intermediates
+        batch_size = y_batch.size(0)
+        # Sample t uniformly from [0,1]
+        t = torch.rand(batch_size, device=device)  # [batch]
+        t = t.unsqueeze(1).unsqueeze(2)  # [batch, 1, 1]
+        
+        # Sample noise
+        noise = torch.randn_like(y_batch) * self.noise_weight
+        
+        # Compute x_t and v_target
+        x_t, v_target = compute_flow_target(noise, y_batch, t)
+        
+        # Predict velocity
+        v_pred = self.forward(conditioning, x_t, t.squeeze(2).squeeze(1))  # t: [batch]
+        
+        # MSE loss
+        loss = F.mse_loss(v_pred, v_target)
+        return loss
     
-
     def sample(self, conditioning, device):
         """
-        Generate a trajectory by running the reverse diffusion process.
+        Generate a trajectory by integrating the velocity field backwards from t=1 to t=0.
         
         Args:
             conditioning: Tensor of shape (batch, cond_len, conditioning_dim)
-            device: torch.device to run the sampling on.
-            
+            device: torch.device
+        
         Returns:
             x: Generated trajectory of shape (batch, num_action_steps, action_dim)
         """
         batch_size = conditioning.size(0)
-        # Start from standard Gaussian noise.
-        x = torch.randn(batch_size, self.num_action_steps, self.action_dim, device=device)
-        # Reverse diffusion process (using the DDPM update)
-        for t in reversed(range(self.num_diffusion_steps)):
-            t_tensor = torch.full((batch_size,), t, device=device, dtype=torch.long)
-            epsilon_pred = self.forward(conditioning, x, t_tensor)
-            beta_t = self.betas[t]
-            alpha_t = 1.0 - beta_t
-            alpha_bar_t = self.alpha_bars[t]
-            if t > 0:
-                noise = torch.randn_like(x)
-            else:
-                noise = 0.0
-            # DDPM reverse update:
-            x = (1.0 / torch.sqrt(alpha_t)) * (x - (beta_t / torch.sqrt(1 - alpha_bar_t)) * epsilon_pred) \
-                + torch.sqrt(beta_t) * noise
+        # initial_guess_flat = self.initial_guess_proj(conditioning.mean(dim=1))  # Pool over seq_len
+        # initial_guess = initial_guess_flat.view(batch_size, self.num_action_steps, self.action_dim)
+        # x = initial_guess + torch.randn_like(initial_guess) * self.noise_weight
+        x = torch.randn(batch_size, self.num_action_steps, self.action_dim, device=device) * self.noise_weight
+        dt = -1.0 / self.num_diffusion_steps  # Negative dt for backward integration
+        for i in range(self.num_diffusion_steps):
+            t = 1.0 + i * dt  # t decreases from 1.0 to almost 0
+            t_tensor = torch.full((batch_size,), t, device=device, dtype=torch.float)
+            v_pred = self.forward(conditioning, x, t_tensor)
+            x = x + v_pred * dt  # Since dt < 0, moves x towards data
         return x
+    
+    def influence(self, conditioning, device):
+        """
+        Runs the flow-matching integration process and returns a list of intermediate trajectories.
+        
+        Args:
+            conditioning: Tensor of shape (batch, cond_len, conditioning_dim)
+            device: torch.device
+        
+        Returns:
+            intermediates: A list of tensors, each of shape (batch, num_action_steps, action_dim),
+                           representing the trajectory at each integration step
+        """
+        batch_size = conditioning.size(0)
+        x = torch.randn(batch_size, self.num_action_steps, self.action_dim, device=device) * self.noise_weight
+        intermediates = []
+        dt = -1.0 / self.num_diffusion_steps  # Negative dt for backward integration
+        for i in range(self.num_diffusion_steps):
+            t = 1.0 + i * dt  # t decreases from 1.0 to almost 0
+            t_tensor = torch.full((batch_size,), t, device=device, dtype=torch.float)
+            v_pred = self.forward(conditioning, x, t_tensor)
+            x = x + v_pred * dt  # Since dt < 0, moves x towards data
+            intermediates.append(x.clone())
+        return intermediates
     
 ###############################################
 # Modified Temporal Fusion Transformer with Diffusion Decoder
@@ -249,8 +293,10 @@ class TemporalFusionTransformerDiffusion(nn.Module):
             conditioning_dim=num_hidden,
             num_diffusion_steps=diffusion_steps,
             num_action_steps=num_steps,
-            num_heads=4,  # you can adjust as needed
-            hidden_dim=num_hidden
+            num_heads=num_attention_heads,  
+            hidden_dim=num_hidden, 
+            num_layers=2,  # you can adjust as needed
+            noise_weight=0.5  # you can adjust as needed
         )
 
         self.num_steps = num_steps
@@ -285,6 +331,12 @@ class TemporalFusionTransformerDiffusion(nn.Module):
         
         # Use a summary of the encoder output as conditioning.
         # Here we use the last time–step (you might also try an average or more complex pooling).
+
+        # attention
+        # attention_weights = torch.softmax(torch.mean(x, dim=-1), dim=1).unsqueeze(-1)
+        # pooled_output = torch.sum(attention_weights * x, dim=1, keepdim=True)
+
+        # conditioning = self.condition_proj(pooled_output)  # (batch, 1, num_hidden)
         conditioning = self.condition_proj(x[:, -1:, :])  # (batch, 1, num_hidden)
         # conditioning = self.condition_proj(x[:, :, :])  # (batch, 1, num_hidden)
 
@@ -292,8 +344,6 @@ class TemporalFusionTransformerDiffusion(nn.Module):
 
         # flow matching during training
         self.device = next(self.parameters()).device
-        flow_loss = torch.tensor(0.0, device=self.device)
-
         
         if influence:
             if return_all:
@@ -301,232 +351,11 @@ class TemporalFusionTransformerDiffusion(nn.Module):
             return self.diffusion_decoder.influence(conditioning, self.device)[-1]
         else:
             if self.training:
-                diff_loss = self.decoder_train_step(conditioning, y_batch, self.device)
-                return diff_loss, vq_loss, perplexity, flow_loss
+                diff_loss = self.diffusion_decoder.decoder_train_step(conditioning, y_batch, self.device)
+                return diff_loss, vq_loss, perplexity
             
-            return User_trajectory, vq_loss, perplexity, flow_loss
-
 
     def influence(self, x):
         User_trajectory = self.forward(x, influence=True)
         return User_trajectory
-    
-    def decoder_train_step(self, conditioning, y_batch, device):
-        """
-        Performs one training step for the diffusion self.diffusion_decoder.
-        
-        Args:
-            self.diffusion_decoder: Instance of DiffusionDecoder.
-            conditioning: Conditioning tensor (batch, cond_len, conditioning_dim)
-                        (e.g., output from an encoder that has been projected to hidden_dim).
-            y_batch: Ground truth trajectory (batch, num_action_steps, action_dim).
-            device: torch.device.
-            
-        Returns:
-            loss: The MSE loss between predicted and true noise.
-        """
-        batch_size = y_batch.size(0)
-        # Sample random timesteps for each example in the batch.
-        t = torch.randint(0, self.diffusion_decoder.num_diffusion_steps, (batch_size,), device=device)
-        # Gather the corresponding alpha_bar for each timestep.
-        alpha_bar_t = self.diffusion_decoder.alpha_bars[t].view(batch_size, 1, 1)  # (batch, 1, 1)
-        # Sample noise to add.
-        noise = torch.randn_like(y_batch)
-        # Create the noisy trajectory: x_t = sqrt(alpha_bar) * x0 + sqrt(1 - alpha_bar) * noise
-        x_t = torch.sqrt(alpha_bar_t) * y_batch + torch.sqrt(1.0 - alpha_bar_t) * noise
-        # The network predicts the noise given x_t and the conditioning.
-        noise_pred = self.diffusion_decoder(conditioning, x_t, t)
-        # MSE loss between the predicted noise and the actual noise.
-        loss = F.mse_loss(noise_pred, noise)
-        return loss
 
-def compute_flow_target(noise, target, t, schedule_fn=lambda t: t):
-    """
-    Computes an intermediate sample x_t and its target flow v_target.
-    
-    Args:
-        noise: Tensor of shape (batch, num_action_steps, action_dim)
-        target: Ground truth output tensor of shape (batch, num_action_steps, action_dim)
-        t: Tensor of shape (batch, 1, 1) with time values in [0,1]
-        schedule_fn: A function φ(t) that maps time to interpolation weight.
-                     For a linear schedule, schedule_fn(t)=t.
-                     
-    Returns:
-        x_t: The intermediate sample at time t.
-        v_target: The target flow, i.e., d x_t / dt.
-    """
-    # Compute interpolation weight and its derivative.
-    phi = schedule_fn(t)              # shape: (batch, 1, 1)
-    # For linear schedule, dphi/dt = 1. Otherwise, adjust accordingly.
-    dphi_dt = torch.ones_like(phi)    # Modify if using a non-linear schedule.
-    
-    # Interpolate: x(t) = (1 - φ(t)) * noise + φ(t) * target
-    x_t = (1 - phi) * noise + phi * target
-    
-    # The target flow is: v_target = dφ/dt * (target - noise)
-    v_target = dphi_dt * (target - noise)
-    
-    return x_t, v_target
-
-
-
-class DecayLoss(nn.Module):
-    def __init__(self, num_steps, baseline_loss_fn=nn.L1Loss()):
-        super(DecayLoss, self).__init__()
-        # Weight decreases as we move further into the future
-        self.weights = torch.linspace(1.0, 1.0, num_steps)
-        self.baseline_loss_fn = baseline_loss_fn
-        
-
-    def forward(self, predictions, targets):
-        loss = 0
-        for i in range(predictions.shape[1]):
-            loss += self.weights[i] * self.baseline_loss_fn(predictions[:, i], targets[:, i])
-        return loss
-    
-    
-baseline_loss_fn = nn.L1Loss() #nn.MSELoss()
-loss_fn = DecayLoss(future_steps, baseline_loss_fn=baseline_loss_fn)
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f"Using {device}")
-
-vqvae = VQVAE(input_dim=feature_dim, hidden_dim=512, num_embeddings=128, embedding_dim=128, commitment_cost=0.25)
-
-model = TemporalFusionTransformerDiffusion(num_features=feature_dim, num_hidden=128, num_outputs=2, num_steps=future_steps, diffusion_steps=10, vqvae=vqvae)
-optimizer = optim.AdamW(model.parameters(), lr=5e-5)
-model.to(device)
-
-
-# Parameters
-n_epochs = 50
-eval_step = 2000
-save_every = 10000
-patience = 8  # Number of evaluations to wait for improvement
-cooldown = 4  # Evaluations to wait after an improvement before counting non-improvements
-smooth_factor = 0.6  # Smoothing factor for moving average
-lambda_flow = 1e-3  # Weight for flow matching loss
-
-# Setup
-train_all = len(train)
-model_name = "TFT_Flowmatching"
-from collections import defaultdict
-loss_all = defaultdict(list)
-best_test_rmse = float('inf')
-early_stopping_counter = 0
-cooldown_counter = cooldown
-
-now = datetime.now()
-folder_name = now.strftime("%b%d_%H-%M-%S")
-print(f"Saving model at ../model/{model_name}/{folder_name}")
-
-scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(len(train) * n_epochs, 50000), eta_min=1e-6)
-
-# Initialize moving average
-moving_avg_test_rmse = None
-
-# Training loop
-for epoch in range(n_epochs):
-    model.train()
-    for step, (X_batch, y_batch) in tqdm(enumerate(train), total=train_all):
-        X_batch = X_batch.float().to(device)
-        y_batch = y_batch.float().to(device)
-        
-        current_pos_input = X_batch[:, -1, :2].clone().unsqueeze(1).repeat(1, lookback, 1)
-        current_pos_output = X_batch[:, -1, :2].clone().unsqueeze(1).repeat(1, future_steps, 1)
-        X_batch[:, :, :2] = X_batch[:, :, :2] - current_pos_input
-        y_batch[:, :, :2] = y_batch[:, :, :2] - current_pos_output
-
-
-        # residual
-        # X_batch[:, 1:, :2] = X_batch[:, 1:, :2] - X_batch[:, :-1, :2].clone()
-        # X_batch[:, 0, :2] = 0
-        # y_batch[:, 1:, :2] = y_batch[:, 1:, :2] - y_batch[:, :-1, :2].clone()
-        # y_batch[:, 0, :2] = 0
-
-        optimizer.zero_grad()
-        
-        # y_pred, vq_loss, perplexity, flow_loss = model(X_batch, y_batch=y_batch)
-        # loss = loss_fn(y_pred[:, :future_steps, :2], y_batch[:, :future_steps, :2])
-        diff_loss, vq_loss, perplexity, flow_loss = model(X_batch, y_batch[:, :future_steps, :2])
-
-
-        loss_all['diff_loss'].append(diff_loss.item())
-        loss_all['vq_loss'].append(vq_loss.item() * 10)
-        # add vq_loss
-        loss = 10 * vq_loss + diff_loss
-        # add flow_loss
-        loss += lambda_flow * flow_loss
-        loss_all['flow_loss'].append(flow_loss.item())
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.step()
-        scheduler.step()
-        
-        # Save model
-        if (epoch * train_all + step + 1) % save_every == 0:
-            os.makedirs(f'../model/{model_name}/{folder_name}', exist_ok=True)
-            save_path = f"../model/{model_name}/{folder_name}/model_{epoch * train_all + step + 1}.pt"
-            torch.save(model.state_dict(), save_path)
-            print(f"Model saved at {save_path}")
-
-        # Validation and early stopping
-        if (epoch * train_all + step + 1) % eval_step == 0:
-            model.eval()
-            test_rmse_all = []
-            with torch.no_grad():
-                for X_test_batch, y_test_batch in test:
-                    X_test_batch = X_test_batch.float().to(device)
-                    y_test_batch = y_test_batch.float().to(device)
-                    
-                    current_pos_input = X_test_batch[:, -1, :2].clone().unsqueeze(1).repeat(1, lookback, 1)
-                    current_pos_output = X_test_batch[:, -1, :2].clone().unsqueeze(1).repeat(1, future_steps, 1)
-                    X_test_batch[:, :, :2] = X_test_batch[:, :, :2] - current_pos_input
-                    y_test_batch[:, :, :2] = y_test_batch[:, :, :2] - current_pos_output
-                    
-                    
-                    # # residual
-                    # X_test_batch[:, 1:, :2] = X_test_batch[:, 1:, :2] - X_test_batch[:, :-1, :2].clone()
-                    # X_test_batch[:, 0, :2] = 0
-                    # y_test_batch[:, 1:, :2] = y_test_batch[:, 1:, :2] - y_test_batch[:, :-1, :2].clone()
-                    # y_test_batch[:, 0, :2] = 0
-                    
-                    y_pred_test = model(X_test_batch, influence=True)
-                    loss_test = loss_fn(y_pred_test[:, :future_steps, :2], y_test_batch[:, :future_steps, :2])
-                    test_rmse = torch.sqrt(loss_test)
-                    if not torch.isnan(test_rmse):
-                        test_rmse_all.append(test_rmse.item())
-            
-            current_rmse = sum(test_rmse_all) / len(test_rmse_all)
-            if moving_avg_test_rmse is None:
-                moving_avg_test_rmse = current_rmse
-            else:
-                moving_avg_test_rmse = smooth_factor * current_rmse + (1 - smooth_factor) * moving_avg_test_rmse
-
-            print(f"Steps {epoch * train_all + step + 1}: test RMSE {current_rmse:.4f}, moving average RMSE {moving_avg_test_rmse:.4f}")
-
-            # Check if the moving average RMSE is better; if not, increment counter
-            if moving_avg_test_rmse < best_test_rmse:
-                best_test_rmse = moving_avg_test_rmse
-                early_stopping_counter = 0  # Reset counter
-                cooldown_counter = cooldown  # Reset cooldown
-                # Optionally save the best model
-                os.makedirs(f'../model/{model_name}/{folder_name}', exist_ok=True)
-                best_model_path = f"../model/{model_name}/{folder_name}/best_model.pt"
-                torch.save(model.state_dict(), best_model_path)
-            else:
-                if cooldown_counter > 0:
-                    cooldown_counter -= 1
-                else:
-                    early_stopping_counter += 1
-
-            if early_stopping_counter >= patience:
-                print(f"Stopping early at epoch {epoch+1}, step {step+1}")
-                break
-
-            model.train()
-        
-    if early_stopping_counter >= patience:
-        break
-
-print("Training complete.")
