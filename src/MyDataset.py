@@ -52,6 +52,11 @@ class MyDataset():
         # normalize
         mean = concatenated_data.mean()
         std = concatenated_data.std()
+
+        # do not normalize first 4 columns
+        mean[:4] = 0
+        std[:4] = 1
+
         self.dataset = [(data - mean) / std for data in self.dataset]
 
         # standardize
@@ -59,6 +64,11 @@ class MyDataset():
         # recompute the min and max in the new combined data
         min_ = concatenated_data.min()
         max_ = concatenated_data.max()
+
+        # do not standardize first 4 columns
+        min_[:4] = 0
+        max_[:4] = 1
+
         self.dataset = [(data - min_) / (max_ - min_) for data in self.dataset]
 
         return {'mean': mean, 'std': std, 'min': min_, 'max': max_}
@@ -111,8 +121,11 @@ class MyDataset():
         train_size = int(n * frac)
         test_size = n - train_size
 
-        train = torch.utils.data.Subset(self.data, range(0, train_size))
-        test = torch.utils.data.Subset(self.data, range(train_size, n))
+        # train = torch.utils.data.Subset(self.data, range(0, train_size))
+        # test = torch.utils.data.Subset(self.data, range(train_size, n))
+
+        # random split
+        train, test = torch.utils.data.random_split(self.data, [train_size, test_size])
         
         train = DataLoader(train, batch_size=train_batch_size, shuffle=shuffle)
         test = DataLoader(test, batch_size=test_batch_size, shuffle=False)
@@ -171,14 +184,14 @@ def save_dataset(dataloader: torch.utils.data.DataLoader, file_path: str = None,
 
 # load
 from typing import Optional
-def load_dataset(file_path: str) -> Optional[torch.utils.data.DataLoader]:
+def load_dataset(file_path: str, batch_size: int = None) -> Optional[torch.utils.data.DataLoader]:
     with open(file_path, "rb") as f:
         load_dict = pickle.load(f)
 
     # Extract dataset and parameters
     dataset = load_dict["dataset"]
     sampler = load_dict["sampler"]
-    batch_size = load_dict["batch_size"]
+    batch_size = load_dict["batch_size"] if batch_size is None else batch_size
     shuffle = load_dict["shuffle"]
     num_workers = load_dict["num_workers"]
     drop_last = load_dict["drop_last"]
