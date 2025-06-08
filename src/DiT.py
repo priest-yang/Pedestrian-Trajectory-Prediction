@@ -27,6 +27,8 @@ from diffusers.models.embeddings import (
 )
 from torch import nn
 
+from diffusers.models.attention_processor import AttnProcessor # for jvp
+
 
 class TimestepEncoder(nn.Module):
     def __init__(self, embedding_dim, compute_dtype=torch.float32):
@@ -88,6 +90,7 @@ class BasicTransformerBlock(nn.Module):
         ff_inner_dim: Optional[int] = None,
         ff_bias: bool = True,
         attention_out_bias: bool = True,
+        processor: Optional[AttnProcessor] = None,
     ):
         super().__init__()
         self.dim = dim
@@ -120,7 +123,8 @@ class BasicTransformerBlock(nn.Module):
             self.norm1 = AdaLayerNorm(dim)
         else:
             self.norm1 = nn.LayerNorm(dim, elementwise_affine=norm_elementwise_affine, eps=norm_eps)
-
+        
+        
         self.attn1 = Attention(
             query_dim=dim,
             heads=num_attention_heads,
@@ -130,6 +134,7 @@ class BasicTransformerBlock(nn.Module):
             cross_attention_dim=None,
             upcast_attention=upcast_attention,
             out_bias=attention_out_bias,
+            processor=processor
         )
 
         # 3. Feed-forward
@@ -210,6 +215,7 @@ class DiT(ModelMixin, ConfigMixin):
         final_dropout: bool = True,
         positional_embeddings: Optional[str] = "sinusoidal",
         interleave_self_attention=False,
+        processor: Optional[AttnProcessor] = None,
     ):
         super().__init__()
 
@@ -238,6 +244,7 @@ class DiT(ModelMixin, ConfigMixin):
                     positional_embeddings=positional_embeddings,
                     num_positional_embeddings=max_num_positional_embeddings,
                     final_dropout=final_dropout,
+                    processor=processor
                 )
                 for _ in range(num_layers)
             ]
