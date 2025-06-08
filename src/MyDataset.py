@@ -66,8 +66,8 @@ class MyDataset():
         max_ = concatenated_data.max()
 
         # do not standardize first 4 columns
-        min_[:4] = 0
-        max_[:4] = 1
+        min_[:4] = -500 # -5m is the min value of the first 4 columns
+        max_[:4] = 1000 # 10m is the max value of the first 4 columns
 
         self.dataset = [(data - min_) / (max_ - min_) for data in self.dataset]
 
